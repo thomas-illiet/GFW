@@ -3,6 +3,7 @@ package app
 import (
 	"crypto/rand"
 	"encoding/base64"
+	"errors"
 	"net/http"
 	"strconv"
 	"strings"
@@ -101,6 +102,25 @@ func (a *App) ecosystemUpdate(w http.ResponseWriter, r *http.Request) {
 	}
 	a.store.Audit(r.Context(), actor(r), "update", "ecosystem", v.ID)
 	writeJSON(w, 200, v)
+}
+
+// ecosystemDelete removes an ecosystem and its assigned machines.
+func (a *App) ecosystemDelete(w http.ResponseWriter, r *http.Request) {
+	if !sameOrigin(r) {
+		problem(w, 403, "csrf_failed", "cross-origin mutation rejected")
+		return
+	}
+	id := r.PathValue("id")
+	if err := a.store.DeleteEcosystem(r.Context(), id); err != nil {
+		if errors.Is(err, store.ErrNotFound) {
+			problem(w, 404, "ecosystem_not_found", "ecosystem does not exist")
+			return
+		}
+		problem(w, 500, "ecosystem_delete_failed", err.Error())
+		return
+	}
+	a.store.Audit(r.Context(), actor(r), "delete", "ecosystem", id)
+	w.WriteHeader(204)
 }
 
 // machines lists or creates machines.

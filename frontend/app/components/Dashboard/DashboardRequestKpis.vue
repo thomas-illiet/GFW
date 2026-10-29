@@ -18,9 +18,9 @@ const primary = computed(() => [
     label: 'Requests',
     value: number(props.value.total),
     detail: trend.value,
-    status: props.value.changePercent >= 0 ? 'Traffic up' : 'Traffic down',
+    status: 'Volume change',
     icon: 'mdi-swap-horizontal',
-    tone: 'primary',
+    tone: 'info',
   },
   {
     label: 'Success rate',
@@ -37,14 +37,6 @@ const primary = computed(() => [
     status: props.activity.passive ? 'Action needed' : 'Fully covered',
     icon: 'mdi-access-point-network',
     tone: props.activity.passive ? 'warning' : 'success',
-  },
-  {
-    label: 'P95 latency',
-    value: `${props.value.p95LatencyMs.toFixed(0)} ms`,
-    detail: `${props.value.averageLatencyMs.toFixed(0)} ms average`,
-    status: props.value.p95LatencyMs < 250 ? 'Within target' : 'Above target',
-    icon: 'mdi-speedometer',
-    tone: props.value.p95LatencyMs < 250 ? 'success' : 'warning',
   },
 ])
 </script>
@@ -68,7 +60,7 @@ const primary = computed(() => [
 <style scoped>
 .request-summary {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
 }
 .kpi {
@@ -109,7 +101,7 @@ const primary = computed(() => [
 .kpi__heading small {
   flex: 1;
   color: rgb(var(--gfw-text-muted));
-  font-size: 0.7rem;
+  font-size: 0.76rem;
   font-weight: 800;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -119,7 +111,7 @@ const primary = computed(() => [
   border-radius: 999px;
   background: rgba(var(--gfw-ember), 0.08);
   color: rgb(var(--gfw-ember));
-  font-size: 0.64rem;
+  font-size: 0.7rem;
   font-weight: 750;
   white-space: nowrap;
 }
@@ -138,7 +130,7 @@ const primary = computed(() => [
 }
 .kpi__detail {
   color: rgb(var(--gfw-text-muted));
-  font-size: 0.76rem;
+  font-size: 0.82rem;
 }
 @media (max-width: 1000px) {
   .request-summary {

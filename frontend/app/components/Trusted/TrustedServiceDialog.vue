@@ -68,7 +68,10 @@ function save() {
 }
 </script>
 <template>
-  <v-dialog v-model="open" max-width="620"
+  <v-dialog
+    v-model="open"
+    max-width="620"
+    :aria-label="service ? 'Edit trusted service' : 'Create trusted service'"
     ><v-card
       :title="service ? 'Edit trusted service' : 'Create trusted service'"
       ><v-card-text

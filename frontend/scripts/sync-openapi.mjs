@@ -1,0 +1,10 @@
+import { copyFile, mkdir } from 'node:fs/promises'
+import { dirname, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+const frontendDirectory = resolve(dirname(fileURLToPath(import.meta.url)), '..')
+const source = resolve(frontendDirectory, '..', 'openapi.yaml')
+const destination = resolve(frontendDirectory, 'public', 'openapi.yaml')
+
+await mkdir(dirname(destination), { recursive: true })
+await copyFile(source, destination)

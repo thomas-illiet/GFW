@@ -47,10 +47,10 @@ openapi-check:
 	GOCACHE=$(GOCACHE) go run ./scripts/check_openapi.go
 
 helm-check:
-	helm lint charts/gfw
-	helm template gfw charts/gfw --set secrets.databaseURL=postgres://example --set secrets.oidcClientSecret=secret --set secrets.sessionSecret=12345678901234567890123456789012 >/dev/null
+	helm lint charts/gfw --set secrets.databaseURL=postgres://example --set secrets.oidcClientSecret=secret --set secrets.sessionSecret=12345678901234567890123456789012 --set secrets.adminToken=12345678901234567890123456789012
+	helm template gfw charts/gfw --set secrets.databaseURL=postgres://example --set secrets.oidcClientSecret=secret --set secrets.sessionSecret=12345678901234567890123456789012 --set secrets.adminToken=12345678901234567890123456789012 >/dev/null
 	helm template gfw charts/gfw --set secrets.existingSecret=gfw-runtime >/dev/null
-	@test -z "$$(helm template gfw charts/gfw --set secrets.existingSecret=gfw-runtime | grep -Ei 'redis|opa|component: worker')"
+	@test -z "$$(helm template gfw charts/gfw --set secrets.existingSecret=gfw-runtime | grep -Ei 'redis|opa|component: worker|kind: NetworkPolicy')"
 
 compose-check:
 	docker compose config >/dev/null

@@ -6,12 +6,43 @@ info:
 servers:
   - url: /
 tags:
-  - { name: Health }
-  - { name: Authentication }
-  - { name: Firewall }
-  - { name: Administration }
-  - { name: Ingestion }
+  - name: Instance
+    description: Non-sensitive identity of the current deployment.
+  - name: Health
+    description: Process liveness and database readiness probes.
+  - name: Authentication
+    description: Browser session lifecycle and current identity.
+  - name: Firewall Lists
+    description: Effective address lists consumed by firewall automation.
+  - name: Dashboard
+    description: Traffic, activity, coverage, and latency statistics.
+  - name: Ecosystems
+    description: Product boundaries used to publish effective firewall lists.
+  - name: Machines
+    description: Machine addresses assigned to product ecosystems.
+  - name: Trusted Services
+    description: Shared DNS services included in every effective list.
+  - name: Ingestion Keys
+    description: Credentials used by inventory synchronization agents.
+  - name: Machine Ingestion
+    description: Managed machine synchronization for external inventory systems.
 paths:
+  /api/v1/public/instance:
+    get:
+      tags: [Instance]
+      summary: Get the deployment environment
+      responses:
+        "200":
+          description: Non-sensitive instance identity
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [environment]
+                properties:
+                  environment:
+                    type: string
+                    enum: [development, staging, production]
   /health/live:
     get:
       tags: [Health]
@@ -52,7 +83,7 @@ paths:
     get:
       tags: [Authentication]
       summary: Return the authenticated user
-      security: [{ session: [] }]
+      security: [{ session: [] }, { adminToken: [] }]
       responses:
         "200":
           description: Current session
@@ -62,7 +93,7 @@ paths:
         "401": { $ref: "#/components/responses/Problem" }
   /api/v1/firewall/ecosystems/{ecosystem}/ips:
     get:
-      tags: [Firewall]
+      tags: [Firewall Lists]
       summary: Get the effective IPv4 list for an ecosystem
       parameters:
         - { $ref: "#/components/parameters/EcosystemName" }
@@ -83,7 +114,7 @@ paths:
         "500": { $ref: "#/components/responses/Problem" }
   /api/v1/firewall/ips/{ipv4}:
     get:
-      tags: [Firewall]
+      tags: [Firewall Lists]
       summary: Find current sources for an IPv4 address
       parameters:
         - in: path
@@ -108,9 +139,9 @@ paths:
         "500": { $ref: "#/components/responses/Problem" }
   /api/v1/admin/dashboard:
     get:
-      tags: [Administration]
+      tags: [Dashboard]
       summary: Get request and address activity metrics
-      security: [{ session: [] }]
+      security: [{ session: [] }, { adminToken: [] }]
       parameters:
         - in: query
           name: window
@@ -124,16 +155,16 @@ paths:
         "500": { $ref: "#/components/responses/Problem" }
   /api/v1/admin/ecosystems:
     get:
-      tags: [Administration]
+      tags: [Ecosystems]
       summary: List ecosystems
-      security: [{ session: [] }]
+      security: [{ session: [] }, { adminToken: [] }]
       responses:
         "200": { $ref: "#/components/responses/EcosystemList" }
         "401": { $ref: "#/components/responses/Problem" }
     post:
-      tags: [Administration]
+      tags: [Ecosystems]
       summary: Create an ecosystem
-      security: [{ session: [] }]
+      security: [{ session: [] }, { adminToken: [] }]
       requestBody:
         required: true
         content: { application/json: { schema: { $ref: "#/components/schemas/EcosystemCreate" } } }
@@ -145,9 +176,9 @@ paths:
         "409": { $ref: "#/components/responses/Problem" }
   /api/v1/admin/ecosystems/{id}:
     patch:
-      tags: [Administration]
+      tags: [Ecosystems]
       summary: Update an ecosystem
-      security: [{ session: [] }]
+      security: [{ session: [] }, { adminToken: [] }]
       parameters: [{ $ref: "#/components/parameters/ResourceID" }]
       requestBody:
         required: true
@@ -158,11 +189,22 @@ paths:
         "401": { $ref: "#/components/responses/Problem" }
         "403": { $ref: "#/components/responses/Problem" }
         "404": { $ref: "#/components/responses/Problem" }
+    delete:
+      tags: [Ecosystems]
+      summary: Delete an ecosystem and its assigned machines
+      description: Permanently deletes the ecosystem. Every machine assigned to it is deleted in the same database operation.
+      security: [{ session: [] }, { adminToken: [] }]
+      parameters: [{ $ref: "#/components/parameters/ResourceID" }]
+      responses:
+        "204": { description: Ecosystem deleted }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
   /api/v1/admin/machines:
     get:
-      tags: [Administration]
+      tags: [Machines]
       summary: List machines
-      security: [{ session: [] }]
+      security: [{ session: [] }, { adminToken: [] }]
       parameters:
         - { in: query, name: search, schema: { type: string } }
         - { in: query, name: ecosystemId, schema: { type: string, format: uuid } }
@@ -170,9 +212,9 @@ paths:
         "200": { $ref: "#/components/responses/MachineList" }
         "401": { $ref: "#/components/responses/Problem" }
     post:
-      tags: [Administration]
+      tags: [Machines]
       summary: Create or update a manually managed machine
-      security: [{ session: [] }]
+      security: [{ session: [] }, { adminToken: [] }]
       requestBody:
         required: true
         content: { application/json: { schema: { $ref: "#/components/schemas/MachineInput" } } }
@@ -183,9 +225,9 @@ paths:
         "403": { $ref: "#/components/responses/Problem" }
   /api/v1/admin/machines/{id}:
     delete:
-      tags: [Administration]
+      tags: [Machines]
       summary: Delete a manually managed machine
-      security: [{ session: [] }]
+      security: [{ session: [] }, { adminToken: [] }]
       parameters: [{ $ref: "#/components/parameters/ResourceID" }]
       responses:
         "204": { description: Machine deleted }
@@ -194,16 +236,16 @@ paths:
         "404": { $ref: "#/components/responses/Problem" }
   /api/v1/admin/trusted-services:
     get:
-      tags: [Administration]
+      tags: [Trusted Services]
       summary: List trusted services
-      security: [{ session: [] }]
+      security: [{ session: [] }, { adminToken: [] }]
       responses:
         "200": { $ref: "#/components/responses/TrustedServiceList" }
         "401": { $ref: "#/components/responses/Problem" }
     post:
-      tags: [Administration]
+      tags: [Trusted Services]
       summary: Create a trusted service
-      security: [{ session: [] }]
+      security: [{ session: [] }, { adminToken: [] }]
       requestBody:
         required: true
         content: { application/json: { schema: { $ref: "#/components/schemas/TrustedServiceInput" } } }
@@ -215,9 +257,9 @@ paths:
         "409": { $ref: "#/components/responses/Problem" }
   /api/v1/admin/trusted-services/{id}:
     patch:
-      tags: [Administration]
+      tags: [Trusted Services]
       summary: Update a trusted service
-      security: [{ session: [] }]
+      security: [{ session: [] }, { adminToken: [] }]
       parameters: [{ $ref: "#/components/parameters/ResourceID" }]
       requestBody:
         required: true
@@ -229,9 +271,9 @@ paths:
         "403": { $ref: "#/components/responses/Problem" }
         "404": { $ref: "#/components/responses/Problem" }
     delete:
-      tags: [Administration]
+      tags: [Trusted Services]
       summary: Delete a trusted service
-      security: [{ session: [] }]
+      security: [{ session: [] }, { adminToken: [] }]
       parameters: [{ $ref: "#/components/parameters/ResourceID" }]
       responses:
         "204": { description: Service deleted }
@@ -240,9 +282,9 @@ paths:
         "404": { $ref: "#/components/responses/Problem" }
   /api/v1/admin/trusted-services/resolve:
     post:
-      tags: [Administration]
+      tags: [Trusted Services]
       summary: Refresh all trusted DNS entries
-      security: [{ session: [] }]
+      security: [{ session: [] }, { adminToken: [] }]
       responses:
         "200":
           description: Refresh completed
@@ -252,17 +294,17 @@ paths:
         "500": { $ref: "#/components/responses/Problem" }
   /api/v1/admin/ingestion-keys:
     get:
-      tags: [Administration]
+      tags: [Ingestion Keys]
       summary: List ingestion keys
-      security: [{ session: [] }]
+      security: [{ session: [] }, { adminToken: [] }]
       responses:
         "200": { $ref: "#/components/responses/IngestionKeyList" }
         "401": { $ref: "#/components/responses/Problem" }
         "403": { $ref: "#/components/responses/Problem" }
     post:
-      tags: [Administration]
+      tags: [Ingestion Keys]
       summary: Create an ingestion key
-      security: [{ session: [] }]
+      security: [{ session: [] }, { adminToken: [] }]
       requestBody:
         required: true
         content:
@@ -290,18 +332,18 @@ paths:
         "409": { $ref: "#/components/responses/Problem" }
   /api/v1/admin/ingestion-keys/{id}:
     delete:
-      tags: [Administration]
+      tags: [Ingestion Keys]
       summary: Revoke an ingestion key
-      security: [{ session: [] }]
+      security: [{ session: [] }, { adminToken: [] }]
       parameters: [{ $ref: "#/components/parameters/ResourceID" }]
       responses:
         "204": { description: Key revoked }
         "401": { $ref: "#/components/responses/Problem" }
         "403": { $ref: "#/components/responses/Problem" }
         "404": { $ref: "#/components/responses/Problem" }
-  /api/v1/ingestion/machines:upsert:
+  /api/v1/ingestion/machines:
     post:
-      tags: [Ingestion]
+      tags: [Machine Ingestion]
       summary: Partially upsert managed machines
       security: [{ ingestionKey: [] }]
       requestBody:
@@ -328,6 +370,11 @@ paths:
         "401": { $ref: "#/components/responses/Problem" }
 components:
   securitySchemes:
+    adminToken:
+      type: http
+      scheme: bearer
+      bearerFormat: opaque administrator token
+      description: Static administrator token configured with GFW_ADMIN_TOKEN.
     ingestionKey: { type: http, scheme: bearer }
     session: { type: apiKey, in: cookie, name: gfw_session }
   parameters:

@@ -61,6 +61,11 @@ func UserFrom(ctx context.Context) (User, bool) { u, ok := ctx.Value(ctxKey{}).(
 // Middleware attaches a valid session identity to each request.
 func (m *Manager) Middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if m.validAdminToken(r.Header.Get("Authorization")) {
+			u := User{Subject: "admin-token", Name: "API administrator", Email: "admin-token@great-firewall.local", Role: "admin", ExpiresAt: time.Now().Add(time.Hour)}
+			next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), ctxKey{}, u)))
+			return
+		}
 		if m.cfg.DevAuth {
 			u := User{Subject: "developer", Name: "Developer", Email: "dev@localhost", Role: "admin", ExpiresAt: time.Now().Add(time.Hour)}
 			next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), ctxKey{}, u)))
@@ -78,6 +83,20 @@ func (m *Manager) Middleware(next http.Handler) http.Handler {
 		}
 		next.ServeHTTP(w, r)
 	})
+}
+
+// validAdminToken validates the configured administrator bearer credential in constant time.
+func (m *Manager) validAdminToken(header string) bool {
+	if m.cfg.AdminToken == "" {
+		return false
+	}
+	scheme, token, ok := strings.Cut(strings.TrimSpace(header), " ")
+	if !ok || !strings.EqualFold(scheme, "Bearer") || token == "" || strings.ContainsAny(token, " \t") {
+		return false
+	}
+	want := sha256.Sum256([]byte(m.cfg.AdminToken))
+	got := sha256.Sum256([]byte(token))
+	return hmac.Equal(got[:], want[:])
 }
 
 // Require enforces authentication and a minimum allowed role.

@@ -117,7 +117,7 @@ def ingest_batch(
     timeout: float,
 ) -> int:
     """Send one managed-machine batch and return the reported upsert count."""
-    endpoint = f"{base_url.rstrip('/')}/api/v1/ingestion/machines:upsert"
+    endpoint = f"{base_url.rstrip('/')}/api/v1/ingestion/machines"
     body = json.dumps({"machines": machines}).encode()
     request = Request(
         endpoint,

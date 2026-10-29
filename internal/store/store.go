@@ -17,6 +17,9 @@ import (
 // ErrNotFound identifies a missing domain resource.
 var ErrNotFound = errors.New("not found")
 
+// ErrInUse identifies a resource that still has dependent records.
+var ErrInUse = errors.New("resource in use")
+
 // Store provides domain repositories backed by GORM.
 type Store struct{ DB *gorm.DB }
 

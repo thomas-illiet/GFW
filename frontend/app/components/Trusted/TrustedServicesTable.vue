@@ -13,6 +13,7 @@ defineEmits<{
   create: []
   edit: [TrustedService]
   remove: [TrustedService]
+  showResolved: [TrustedService]
   resolve: []
   export: []
 }>()
@@ -36,12 +37,22 @@ function statusColor(status: string) {
 function resolvedCount(service: TrustedService) {
   return new Set(service.Hostnames.flatMap(currentIPs)).size
 }
+function latestSuccess(service: TrustedService) {
+  return service.Hostnames.map((host) => host.LastSuccessAt)
+    .filter((value): value is string => Boolean(value))
+    .sort((left, right) => Date.parse(right) - Date.parse(left))[0]
+}
+function latestError(service: TrustedService) {
+  return service.Hostnames.find((host) => host.LastError)?.LastError ?? ''
+}
 const tableItems = computed(() =>
   props.items.map((service) => ({
     ...service,
     HostnameSort: service.Hostnames.map((host) => host.Hostname).join(' '),
     IPv4Count: resolvedCount(service),
     DNSStatus: serviceDNSStatus(service),
+    DNSLastSuccess: latestSuccess(service),
+    DNSError: latestError(service),
   })),
 )
 const headers = computed(() => [
@@ -50,16 +61,12 @@ const headers = computed(() => [
   { title: 'IP addresses', key: 'IPv4Count', align: 'center' as const },
   { title: 'DNS status', key: 'DNSStatus', align: 'center' as const },
   { title: 'Service status', key: 'IsActive', align: 'center' as const },
-  ...(props.canEdit
-    ? [
-        {
-          title: 'Actions',
-          key: 'actions',
-          align: 'center' as const,
-          sortable: false,
-        },
-      ]
-    : []),
+  {
+    title: 'Actions',
+    key: 'actions',
+    align: 'center' as const,
+    sortable: false,
+  },
 ])
 </script>
 
@@ -72,14 +79,6 @@ const headers = computed(() => [
     <template #actions>
       <AppExportButton :disabled="!items.length" @export="$emit('export')" />
       <v-btn
-        v-if="canEdit"
-        color="primary"
-        prepend-icon="mdi-plus"
-        @click="$emit('create')"
-      >
-        Add service
-      </v-btn>
-      <v-btn
         v-if="canResolve"
         variant="tonal"
         color="primary"
@@ -90,17 +89,23 @@ const headers = computed(() => [
       >
         Resolve now
       </v-btn>
+      <v-btn
+        v-if="canEdit"
+        color="primary"
+        prepend-icon="mdi-plus"
+        @click="$emit('create')"
+      >
+        Add service
+      </v-btn>
     </template>
 
     <v-data-table
       v-if="items.length"
-      class="services-table"
-      :class="{ 'services-table--actions': canEdit }"
+      class="services-table services-table--actions"
       :headers="headers"
       :items="tableItems"
       item-value="ID"
-      :items-per-page="-1"
-      hide-default-footer
+      :items-per-page="10"
     >
       <template #[`item.Name`]="{ item: service }">
         <div class="table-service">
@@ -130,13 +135,20 @@ const headers = computed(() => [
         </v-chip>
       </template>
       <template #[`item.DNSStatus`]="{ item: service }">
-        <v-chip
-          :color="statusColor(service.DNSStatus)"
-          size="small"
-          variant="tonal"
-        >
-          {{ service.DNSStatus }}
-        </v-chip>
+        <div class="dns-health" :title="service.DNSError || undefined">
+          <v-chip
+            :color="statusColor(service.DNSStatus)"
+            size="small"
+            variant="tonal"
+          >
+            {{ service.DNSStatus }}
+          </v-chip>
+          <AppRelativeTime
+            :value="service.DNSLastSuccess"
+            prefix="Resolved"
+            empty="Never resolved"
+          />
+        </div>
       </template>
       <template #[`item.IsActive`]="{ item: service }">
         <v-chip
@@ -146,22 +158,28 @@ const headers = computed(() => [
           {{ service.IsActive ? 'Active' : 'Inactive' }}
         </v-chip>
       </template>
-      <template v-if="canEdit" #[`item.actions`]="{ item: service }">
-        <v-btn
-          icon="mdi-pencil-outline"
-          size="small"
-          variant="text"
-          aria-label="Edit trusted service"
-          @click="$emit('edit', service)"
-        />
-        <v-btn
-          icon="mdi-delete-outline"
-          size="small"
-          variant="text"
-          color="error"
-          aria-label="Delete trusted service"
-          @click="$emit('remove', service)"
-        />
+      <template #[`item.actions`]="{ item: service }">
+        <AppActionMenu :aria-label="`Actions for ${service.Name}`">
+          <v-list-item
+            prepend-icon="mdi-ip-network-outline"
+            title="View resolved addresses"
+            @click="$emit('showResolved', service)"
+          />
+          <template v-if="canEdit">
+            <v-divider class="my-1" />
+            <v-list-item
+              prepend-icon="mdi-pencil-outline"
+              title="Edit service"
+              @click="$emit('edit', service)"
+            />
+            <v-list-item
+              class="text-error"
+              prepend-icon="mdi-delete-outline"
+              title="Delete service"
+              @click="$emit('remove', service)"
+            />
+          </template>
+        </AppActionMenu>
       </template>
     </v-data-table>
 
@@ -196,18 +214,20 @@ const headers = computed(() => [
 .services-table :deep(td:nth-child(2)) {
   min-width: 250px;
 }
-.services-table--actions :deep(th:last-child),
-.services-table--actions :deep(td:last-child) {
-  position: sticky;
-  right: 0;
-  z-index: 1;
-  min-width: 104px;
-  background: rgb(var(--gfw-surface));
-  box-shadow: -12px 0 18px -18px rgba(var(--gfw-shadow), 0.8);
-}
-.services-table--actions :deep(th:last-child) {
-  z-index: 2;
-  background: rgb(var(--gfw-muted)) !important;
+@media (max-width: 1279px) {
+  .services-table--actions :deep(th:last-child),
+  .services-table--actions :deep(td:last-child) {
+    position: sticky;
+    right: 0;
+    z-index: 1;
+    min-width: 104px;
+    background: rgb(var(--gfw-surface));
+    box-shadow: -12px 0 18px -18px rgba(var(--gfw-shadow), 0.8);
+  }
+  .services-table--actions :deep(th:last-child) {
+    z-index: 2;
+    background: rgb(var(--gfw-muted)) !important;
+  }
 }
 .table-service,
 .hostname-list {
@@ -225,7 +245,32 @@ const headers = computed(() => [
   gap: 6px;
   white-space: nowrap;
 }
+.dns-health {
+  display: grid;
+  justify-items: center;
+  gap: 5px;
+}
+.dns-health :deep(.relative-time) {
+  font-size: 0.72rem;
+}
 @media (max-width: 700px) {
+  .services-table :deep(.v-table__wrapper > table) {
+    min-width: 620px;
+  }
+  .services-table :deep(th:nth-child(3)),
+  .services-table :deep(td:nth-child(3)),
+  .services-table :deep(th:nth-child(4)),
+  .services-table :deep(td:nth-child(4)) {
+    display: none;
+  }
+  .services-table :deep(th:first-child),
+  .services-table :deep(td:first-child) {
+    min-width: 210px;
+  }
+  .services-table :deep(th:nth-child(2)),
+  .services-table :deep(td:nth-child(2)) {
+    min-width: 200px;
+  }
   .table-service small {
     display: none;
   }

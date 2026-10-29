@@ -35,8 +35,8 @@ defineProps<{
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 24px;
-  padding: 24px;
+  gap: 20px;
+  padding: 20px 22px;
   background:
     radial-gradient(
       circle at 92% 0,
@@ -101,8 +101,8 @@ span {
 }
 .stat {
   display: grid;
-  min-width: 160px;
-  padding: 14px;
+  min-width: 148px;
+  padding: 12px 14px;
   border: 1px solid rgba(var(--gfw-ember), 0.2);
   border-radius: 18px;
   background:

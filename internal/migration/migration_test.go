@@ -85,7 +85,7 @@ func expectTable(mock sqlmock.Sqlmock, exists bool) {
 func TestCheckCurrent(t *testing.T) {
 	runner, mock := testRunner(t)
 	expectTable(mock, true)
-	mock.ExpectQuery("SELECT version_id").WillReturnRows(sqlmock.NewRows([]string{"version_id"}).AddRow(1))
+	mock.ExpectQuery("SELECT version_id").WillReturnRows(sqlmock.NewRows([]string{"version_id"}).AddRow(1).AddRow(2))
 	if err := runner.CheckCurrent(context.Background()); err != nil {
 		t.Fatal(err)
 	}

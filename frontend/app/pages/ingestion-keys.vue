@@ -17,7 +17,7 @@ const headers = [
   { title: 'Last used', key: 'LastUsedAt', align: 'center' as const },
   { title: 'Status', key: 'RevokedAt', align: 'center' as const },
   {
-    title: 'Action',
+    title: 'Actions',
     key: 'actions',
     align: 'center' as const,
     sortable: false,
@@ -138,14 +138,17 @@ function exportKeys() {
               }}</v-chip>
             </template>
             <template #[`item.actions`]="{ item: k }">
-              <v-btn
+              <AppActionMenu
                 v-if="!k.RevokedAt"
-                icon="mdi-key-remove"
-                color="error"
-                variant="text"
-                aria-label="Revoke ingestion key"
-                @click="requestRevoke(k)"
-              />
+                :aria-label="`Actions for ${k.Name}`"
+              >
+                <v-list-item
+                  class="text-error"
+                  prepend-icon="mdi-key-remove"
+                  title="Revoke key"
+                  @click="requestRevoke(k)"
+                />
+              </AppActionMenu>
             </template>
             <template #no-data>
               <AppEmptyState

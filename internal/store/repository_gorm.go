@@ -37,6 +37,15 @@ func (s *Store) UpdateEcosystem(ctx context.Context, id, displayName string, act
 	return v, err
 }
 
+// DeleteEcosystem removes an ecosystem and lets the database cascade to its machines.
+func (s *Store) DeleteEcosystem(ctx context.Context, id string) error {
+	db := s.DB.WithContext(ctx).Where("id = ?", id).Delete(&Ecosystem{})
+	if db.Error == nil && db.RowsAffected == 0 {
+		return ErrNotFound
+	}
+	return db.Error
+}
+
 // ListMachines filters machines by text and ecosystem.
 func (s *Store) ListMachines(ctx context.Context, search, ecosystemID string) ([]Machine, error) {
 	var out []Machine

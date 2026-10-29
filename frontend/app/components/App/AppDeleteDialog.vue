@@ -6,14 +6,24 @@ const props = withDefaults(
     assetName?: string
     description: string
     impact?: string
+    dialogTitle?: string
+    eyebrow?: string
+    warningTitle?: string
     confirmLabel?: string
+    confirmColor?: string
+    confirmIcon?: string
     icon?: string
     loading?: boolean
   }>(),
   {
     assetName: '',
     impact: 'This action cannot be undone.',
+    dialogTitle: '',
+    eyebrow: 'Permanent deletion',
+    warningTitle: 'This action cannot be undone',
     confirmLabel: 'Delete permanently',
+    confirmColor: 'error',
+    confirmIcon: 'mdi-delete-outline',
     icon: 'mdi-delete-alert-outline',
     loading: false,
   },
@@ -21,7 +31,7 @@ const props = withDefaults(
 const emit = defineEmits<{ confirm: [] }>()
 
 const confirmation = shallowRef('')
-const title = computed(() => `Delete ${props.assetType}?`)
+const title = computed(() => props.dialogTitle || `Delete ${props.assetType}?`)
 const isConfirmed = computed(
   () => Boolean(props.assetName) && confirmation.value === props.assetName,
 )
@@ -37,14 +47,18 @@ function confirm() {
 
 <template>
   <v-dialog v-model="open" max-width="580" persistent>
-    <v-card class="delete-dialog" rounded="xl">
+    <v-card
+      class="delete-dialog"
+      rounded="xl"
+      :style="{ '--dialog-tone': `var(--v-theme-${confirmColor})` }"
+    >
       <v-card-text class="pa-7">
         <header class="delete-dialog__header">
           <div class="delete-dialog__icon" aria-hidden="true">
             <v-icon :icon="icon" size="30" />
           </div>
           <div>
-            <p class="delete-dialog__eyebrow">Permanent deletion</p>
+            <p class="delete-dialog__eyebrow">{{ eyebrow }}</p>
             <h2>{{ title }}</h2>
             <p class="delete-dialog__description">{{ description }}</p>
           </div>
@@ -53,7 +67,7 @@ function confirm() {
         <div class="delete-dialog__impact">
           <v-icon icon="mdi-alert-circle-outline" size="20" />
           <div>
-            <strong>This action cannot be undone</strong>
+            <strong>{{ warningTitle }}</strong>
             <span>{{ impact }}</span>
           </div>
         </div>
@@ -86,9 +100,9 @@ function confirm() {
           Cancel
         </v-btn>
         <v-btn
-          color="error"
+          :color="confirmColor"
           variant="flat"
-          prepend-icon="mdi-delete-outline"
+          :prepend-icon="confirmIcon"
           :loading="loading"
           :disabled="!isConfirmed"
           @click="confirm"
@@ -102,7 +116,7 @@ function confirm() {
 
 <style scoped>
 .delete-dialog {
-  border: 1px solid rgba(var(--v-theme-error), 0.2);
+  border: 1px solid rgba(var(--dialog-tone), 0.2);
 }
 .delete-dialog__header {
   display: grid;
@@ -115,12 +129,12 @@ function confirm() {
   height: 56px;
   place-items: center;
   border-radius: 17px;
-  background: rgba(var(--v-theme-error), 0.12);
-  color: rgb(var(--v-theme-error));
+  background: rgba(var(--dialog-tone), 0.12);
+  color: rgb(var(--dialog-tone));
 }
 .delete-dialog__eyebrow {
   margin: 0 0 4px;
-  color: rgb(var(--v-theme-error));
+  color: rgb(var(--dialog-tone));
   font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -142,8 +156,8 @@ function confirm() {
   margin: 22px 0;
   padding: 14px 16px;
   border-radius: 14px;
-  background: rgba(var(--v-theme-error), 0.08);
-  color: rgb(var(--v-theme-error));
+  background: rgba(var(--dialog-tone), 0.08);
+  color: rgb(var(--dialog-tone));
 }
 .delete-dialog__impact div {
   display: grid;
@@ -166,7 +180,7 @@ function confirm() {
   font-weight: 700;
 }
 .delete-dialog__confirmation small {
-  color: rgb(var(--v-theme-error));
+  color: rgb(var(--dialog-tone));
 }
 
 @media (max-width: 600px) {

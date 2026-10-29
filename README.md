@@ -7,20 +7,33 @@ Great Firewall is an IPv4 policy control plane. It maintains machine addresses p
 - PostgreSQL-backed machine, ecosystem and trusted-service catalogues.
 - `GET /api/v1/firewall/ecosystems/{ecosystem}/ips?format=json|txt` with stable ETags.
 - Detailed one-year request history and a 24-hour, 7-day and 30-day activity dashboard.
+- Prometheus metrics on an isolated listener, separate from the product API.
 - OIDC administration with Viewer, Editor and Admin roles.
+- Administrator bearer token for full API-based product management.
 - Revocable, hashed API keys for managed inventory ingestion.
 - Background DNS refresh that retains the last successful IPv4 set on failure.
 - Nuxt/Vuetify administration portal embedded in the production image.
 
 ## Local development
 
-The quickest complete environment uses development authentication:
+The complete local environment includes Keycloak and exercises the same OIDC
+Authorization Code flow as production:
 
 ```sh
 docker compose up --build
 ```
 
-Open <http://localhost:8080>. Development authentication grants the local user the Admin role and must never be enabled in production.
+Open <http://localhost:8080>. The imported development realm provides:
+
+| Username | Password | Role |
+| --- | --- | --- |
+| `viewer` | `viewer` | Viewer |
+| `editor` | `editor` | Editor |
+| `admin` | `admin` | Admin |
+
+Keycloak is available at <http://keycloak.localhost:19090> and its development
+administration account is `admin` / `admin`. These credentials and client
+secrets are local fixtures and must never be reused outside development.
 
 To populate the local database with an idempotent 30-day demonstration dataset:
 
@@ -30,11 +43,18 @@ make demo-seed
 
 The dataset adds product ecosystems, machines, trusted services, ingestion keys and detailed firewall request history. It uses documentation-only IPv4 ranges and must not be loaded in production.
 
-For native development, start PostgreSQL and set:
+For native application development, start PostgreSQL and Keycloak with Compose,
+then set:
 
 ```sh
 export GFW_DATABASE_URL='postgres://gfw:gfw@localhost:5432/gfw?sslmode=disable'
-export GFW_DEV_AUTH=true
+export GFW_PUBLIC_URL='http://127.0.0.1:18080'
+export GFW_OIDC_ISSUER='http://keycloak.localhost:19090/realms/great-firewall'
+export GFW_OIDC_CLIENT_ID='great-firewall'
+export GFW_OIDC_CLIENT_SECRET='great-firewall-dev-secret'
+export GFW_OIDC_REDIRECT_URL='http://127.0.0.1:18080/auth/callback'
+export GFW_SESSION_SECRET='local-development-session-secret-change-me'
+export GFW_ADMIN_TOKEN='local-development-admin-token-change-me'
 make frontend-build
 make migrate
 make run
@@ -45,12 +65,14 @@ make run
 | Variable | Purpose | Default |
 | --- | --- | --- |
 | `GFW_DATABASE_URL` | PostgreSQL connection URL | local development URL |
+| `GFW_METRICS_LISTEN_ADDRESS` | Dedicated Prometheus listener | `:9090` |
 | `GFW_PUBLIC_URL` | Browser-visible base URL | `http://localhost:8080` |
 | `GFW_OIDC_ISSUER` | OpenID Connect issuer | required |
 | `GFW_OIDC_CLIENT_ID` | OIDC client identifier | required |
 | `GFW_OIDC_CLIENT_SECRET` | OIDC client secret | required |
 | `GFW_OIDC_REDIRECT_URL` | OIDC callback URL | `{public URL}/auth/callback` |
 | `GFW_SESSION_SECRET` | At least 32 bytes used to sign sessions | required |
+| `GFW_ADMIN_TOKEN` | At least 32 bytes for administrator API access | required |
 | `GFW_DNS_INTERVAL` | Trusted DNS refresh interval | `15m` |
 | `GFW_DNS_TIMEOUT` | Per-host resolution timeout | `5s` |
 | `GFW_RETENTION_DAYS` | Detailed request retention | `365` |
@@ -63,6 +85,27 @@ without a recognized group receive read-only Viewer access. See the
 [authentication and authorization guide](docs/authentication.md) for the exact
 permissions.
 
+The administration API also accepts the configured token on every protected
+route:
+
+```sh
+curl -H "Authorization: Bearer $GFW_ADMIN_TOKEN" \
+  https://gfw.example.com/api/v1/admin/ecosystems
+```
+
+The interactive Swagger documentation is available from **API Documentation**
+at the bottom of the application menu.
+
+Prometheus scrapes `GET /metrics` on the dedicated metrics port. The endpoint
+exports process availability, request totals and request-duration summaries:
+
+```yaml
+scrape_configs:
+  - job_name: great-firewall
+    static_configs:
+      - targets: ["great-firewall:9090"]
+```
+
 ## Ingestion
 
 Create a key in the Administration UI, then submit partial upsert batches:
@@ -71,7 +114,7 @@ Create a key in the Administration UI, then submit partial upsert batches:
 curl -H 'Authorization: Bearer PREFIX.SECRET' \
   -H 'Content-Type: application/json' \
   --data '{"machines":[{"hostname":"api-01","ecosystemID":"ECOSYSTEM_UUID","ipv4":"10.0.0.10"}]}' \
-  http://localhost:8080/api/v1/ingestion/machines:upsert
+  http://localhost:8080/api/v1/ingestion/machines
 ```
 
 See [`openapi.yaml`](openapi.yaml) for the HTTP contract.

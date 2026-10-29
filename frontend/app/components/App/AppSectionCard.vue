@@ -17,7 +17,7 @@ defineSlots<{ actions(): unknown; default(): unknown }>()
 <style scoped>
 .section {
   min-width: 0;
-  padding: 20px;
+  padding: 18px;
   background:
     radial-gradient(
       circle at 92% 4%,
@@ -37,14 +37,14 @@ header {
   justify-content: space-between;
   align-items: center;
   gap: 16px;
-  margin-bottom: 16px;
+  margin-bottom: 14px;
 }
 header > div:first-child {
   min-width: 0;
 }
 h2 {
   margin: 0;
-  font-size: 1.12rem;
+  font-size: 1rem;
 }
 p {
   margin: 4px 0 0;

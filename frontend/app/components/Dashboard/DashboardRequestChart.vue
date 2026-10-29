@@ -253,13 +253,13 @@ function label(value: string) {
   --tooltip-y: 10px;
 }
 .chart-tooltip strong {
-  font-size: 0.76rem;
+  font-size: 0.82rem;
 }
 .chart-tooltip span {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 0.7rem;
+  font-size: 0.76rem;
   opacity: 0.86;
 }
 .chart-tooltip i {
@@ -285,7 +285,7 @@ function label(value: string) {
 }
 .chart-axis text {
   fill: rgb(var(--gfw-text-secondary));
-  font-size: 11px;
+  font-size: 12px;
 }
 .chart-line {
   fill: none;

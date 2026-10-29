@@ -3,11 +3,14 @@ import type { Machine, MachineSource } from '~/types/api'
 import { exportCsv } from '~/utils/export'
 definePageMeta({ role: 'viewer' })
 const auth = useAuthStore(),
+  route = useRoute(),
   r = useResources(),
   notifications = useNotifications()
 const { ecosystems, machines, loading, error } = r
 const search = shallowRef(''),
-  ecosystem = shallowRef(''),
+  ecosystem = shallowRef(
+    typeof route.query.ecosystem === 'string' ? route.query.ecosystem : '',
+  ),
   source = shallowRef<MachineSource>(''),
   dialog = shallowRef(false),
   deleteDialog = shallowRef(false),

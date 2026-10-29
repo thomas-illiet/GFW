@@ -14,6 +14,7 @@ const auth = useAuthStore(),
   dnsStatus = shallowRef<DNSStatus>(''),
   dialog = shallowRef(false),
   deleteDialog = shallowRef(false),
+  resolvedDialog = shallowRef(false),
   selectedService = shallowRef<TrustedService | null>(null)
 const { trusted, loading, error } = r
 const hasFilters = computed(() =>
@@ -84,6 +85,10 @@ function editService(service: TrustedService) {
 function requestDelete(service: TrustedService) {
   selectedService.value = service
   deleteDialog.value = true
+}
+function showResolved(service: TrustedService) {
+  selectedService.value = service
+  resolvedDialog.value = true
 }
 async function confirmDelete() {
   if (!selectedService.value) return
@@ -158,12 +163,15 @@ function exportTrusted() {
           @create="createService"
           @edit="editService"
           @remove="requestDelete"
+          @show-resolved="showResolved"
           @resolve="resolve" /></v-col></v-row
     ><TrustedServiceDialog
       v-model="dialog"
       :loading="loading"
       :service="selectedService"
-      @save="save" /><AppDeleteDialog
+      @save="save" /><TrustedResolvedAddressesDialog
+      v-model="resolvedDialog"
+      :service="selectedService" /><AppDeleteDialog
       v-model="deleteDialog"
       asset-type="trusted service"
       :asset-name="selectedService?.Name"

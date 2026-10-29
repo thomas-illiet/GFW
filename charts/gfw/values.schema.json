@@ -15,13 +15,41 @@
     },
     "config": {
       "type": "object",
-      "required": ["listen_address", "public_url", "frontend_dir", "oidc_issuer", "oidc_client_id", "oidc_redirect_url", "dev_auth", "dns_interval", "dns_timeout", "retention_days"],
+      "required": ["environment", "listen_address", "metrics_listen_address", "public_url", "frontend_dir", "oidc_issuer", "oidc_client_id", "oidc_redirect_url", "dev_auth", "dns_interval", "dns_timeout", "retention_days"],
       "properties": {
+        "environment": {"enum": ["development", "staging", "production"]},
+        "listen_address": {"type": "string", "pattern": ":8080$"},
+        "metrics_listen_address": {"type": "string", "pattern": ":9090$"},
         "dev_auth": {"const": false},
         "retention_days": {"type": "integer", "minimum": 1}
       }
     },
-    "secrets": {"type": "object", "required": ["existingSecret", "keys"]},
+    "service": {
+      "type": "object",
+      "required": ["port", "metricsPort"],
+      "properties": {
+        "port": {"type": "integer", "minimum": 1, "maximum": 65535},
+        "metricsPort": {"type": "integer", "minimum": 1, "maximum": 65535}
+      }
+    },
+    "secrets": {
+      "type": "object",
+      "required": ["existingSecret", "keys"],
+      "properties": {
+        "existingSecret": {"type": "string"},
+        "keys": {
+          "type": "object",
+          "required": ["databaseURL", "oidcClientSecret", "sessionSecret", "adminToken"],
+          "properties": {
+            "databaseURL": {"type": "string", "minLength": 1},
+            "oidcClientSecret": {"type": "string", "minLength": 1},
+            "sessionSecret": {"type": "string", "minLength": 1},
+            "adminToken": {"type": "string", "minLength": 1}
+          }
+        },
+        "adminToken": {"type": "string"}
+      }
+    },
     "podSecurityContext": {
       "type": "object",
       "required": ["runAsNonRoot", "runAsUser", "runAsGroup", "seccompProfile"],

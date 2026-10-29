@@ -1,4 +1,25 @@
 services:
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.8.1
+    command: ["start-dev", "--import-realm", "--health-enabled=true"]
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+      KC_HOSTNAME: http://keycloak.localhost:19090
+    ports:
+      - "${GFW_KEYCLOAK_PORT:-19090}:8080"
+    volumes:
+      - ./deploy/keycloak/great-firewall-realm.json:/opt/keycloak/data/import/great-firewall-realm.json:ro
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "exec 3<>/dev/tcp/127.0.0.1/9000; printf 'GET /health/ready HTTP/1.1\\r\\nhost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3; grep -q '200 OK' <&3",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 20s
   postgres:
     image: postgres:17-alpine
     environment:
@@ -15,21 +36,41 @@ services:
   great-firewall:
     build: .
     environment:
+      GFW_ENVIRONMENT: development
       GFW_DATABASE_URL: postgres://gfw:gfw@postgres:5432/gfw?sslmode=disable
       GFW_PUBLIC_URL: http://localhost:8080
-      GFW_DEV_AUTH: "true"
+      GFW_OIDC_ISSUER: http://keycloak.localhost:19090/realms/great-firewall
+      GFW_OIDC_CLIENT_ID: great-firewall
+      GFW_OIDC_CLIENT_SECRET: great-firewall-dev-secret
+      GFW_OIDC_REDIRECT_URL: http://localhost:8080/auth/callback
+      GFW_SESSION_SECRET: local-development-session-secret-change-me
+      GFW_ADMIN_TOKEN: local-development-admin-token-change-me
+    extra_hosts:
+      - "keycloak.localhost:host-gateway"
     depends_on:
+      keycloak:
+        condition: service_healthy
       postgres:
         condition: service_healthy
       migrate:
         condition: service_completed_successfully
-    ports: ["${GFW_HTTP_PORT:-8080}:8080"]
+    ports:
+      - "${GFW_HTTP_PORT:-8080}:8080"
+      - "${GFW_METRICS_PORT:-9090}:9090"
   migrate:
     build: .
     command: ["migrate", "up"]
     environment:
+      GFW_ENVIRONMENT: development
       GFW_DATABASE_URL: postgres://gfw:gfw@postgres:5432/gfw?sslmode=disable
-      GFW_DEV_AUTH: "true"
+      GFW_OIDC_ISSUER: http://keycloak.localhost:19090/realms/great-firewall
+      GFW_OIDC_CLIENT_ID: great-firewall
+      GFW_OIDC_CLIENT_SECRET: great-firewall-dev-secret
+      GFW_OIDC_REDIRECT_URL: http://localhost:8080/auth/callback
+      GFW_SESSION_SECRET: local-development-session-secret-change-me
+      GFW_ADMIN_TOKEN: local-development-admin-token-change-me
+    extra_hosts:
+      - "keycloak.localhost:host-gateway"
     depends_on:
       postgres:
         condition: service_healthy

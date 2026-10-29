@@ -2,6 +2,7 @@ FROM node:24-alpine AS frontend
 WORKDIR /src/frontend
 COPY frontend/package*.json ./
 RUN npm ci
+COPY openapi.yaml /src/openapi.yaml
 COPY frontend/ ./
 RUN npm run generate
 
@@ -21,7 +22,7 @@ WORKDIR /app
 COPY --from=backend /great-firewall /app/great-firewall
 COPY --from=frontend /src/frontend/.output/public /app/frontend/.output/public
 ENV GFW_LISTEN_ADDRESS=:8080 GFW_FRONTEND_DIR=/app/frontend/.output/public
-EXPOSE 8080
+EXPOSE 8080 9090
 USER nonroot:nonroot
 ENTRYPOINT ["/app/great-firewall"]
 CMD ["serve"]

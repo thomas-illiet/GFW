@@ -154,7 +154,9 @@ func newMigrator(db *store.Store) (migrationService, error) {
 // addFlags declares the stable CLI configuration interface.
 func addFlags(flags *pflag.FlagSet, configPath *string) {
 	flags.StringVar(configPath, "config", "", "YAML configuration file")
+	flags.String("environment", "", "deployment environment (development, staging, or production)")
 	flags.String("listen-address", "", "HTTP listen address")
+	flags.String("metrics-listen-address", "", "Prometheus metrics listen address")
 	flags.String("database-url", "", "PostgreSQL connection URL")
 	flags.String("public-url", "", "browser-visible base URL")
 	flags.String("frontend-dir", "", "generated frontend directory")
@@ -163,6 +165,7 @@ func addFlags(flags *pflag.FlagSet, configPath *string) {
 	flags.String("oidc-client-secret", "", "OIDC client secret")
 	flags.String("oidc-redirect-url", "", "OIDC callback URL")
 	flags.String("session-secret", "", "session signing secret")
+	flags.String("admin-token", "", "administrator API bearer token")
 	flags.Bool("dev-auth", false, "enable development authentication")
 	flags.Duration("dns-interval", 0, "DNS refresh interval")
 	flags.Duration("dns-timeout", 0, "DNS lookup timeout")
@@ -179,17 +182,25 @@ func runServer(parent context.Context, cfg config.Config, db *store.Store) error
 	}
 	defer application.Close()
 	server := &http.Server{Addr: cfg.ListenAddress, Handler: application.Handler(), ReadHeaderTimeout: 10 * time.Second, ReadTimeout: 30 * time.Second, WriteTimeout: 60 * time.Second, IdleTimeout: 90 * time.Second}
-	errCh := make(chan error, 1)
+	metricsServer := &http.Server{Addr: cfg.MetricsAddress, Handler: application.MetricsHandler(), ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 10 * time.Second, WriteTimeout: 10 * time.Second, IdleTimeout: 30 * time.Second}
+	errCh := make(chan error, 2)
 	go func() { errCh <- server.ListenAndServe() }()
-	select {
-	case <-ctx.Done():
+	go func() { errCh <- metricsServer.ListenAndServe() }()
+	shutdown := func() error {
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 		defer cancel()
-		return server.Shutdown(shutdownCtx)
+		apiErr := server.Shutdown(shutdownCtx)
+		metricsErr := metricsServer.Shutdown(shutdownCtx)
+		return errors.Join(apiErr, metricsErr)
+	}
+	select {
+	case <-ctx.Done():
+		return shutdown()
 	case err := <-errCh:
+		shutdownErr := shutdown()
 		if errors.Is(err, http.ErrServerClosed) {
-			return nil
+			return shutdownErr
 		}
-		return err
+		return errors.Join(err, shutdownErr)
 	}
 }

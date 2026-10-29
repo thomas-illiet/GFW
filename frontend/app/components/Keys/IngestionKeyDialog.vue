@@ -10,7 +10,7 @@ watch(open, (v) => {
 })
 </script>
 <template>
-  <v-dialog v-model="open" max-width="500"
+  <v-dialog v-model="open" max-width="500" aria-label="Create ingestion key"
     ><v-card title="Create ingestion key"
       ><v-card-text
         ><v-form

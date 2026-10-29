@@ -6,6 +6,10 @@ Run:
 Then open http://127.0.0.1:8080.
 {{- end }}
 
+Prometheus metrics:
+  kubectl -n {{ .Release.Namespace }} port-forward svc/{{ include "gfw.fullname" . }} 9090:{{ .Values.service.metricsPort }}
+  curl http://127.0.0.1:9090/metrics
+
 This chart does not install PostgreSQL. Its endpoint is read from
 Secret {{ include "gfw.secretName" . }} and remain required by this GFW release.
 

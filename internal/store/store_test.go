@@ -78,6 +78,14 @@ func TestEcosystemAndMachineRepositories(t *testing.T) {
 	if v, err := s.UpdateEcosystem(ctx, "e1", "Payments", true); err != nil || v.ID != "e1" {
 		t.Fatalf("successful update: %+v %v", v, err)
 	}
+	mock.ExpectExec("DELETE FROM \"ecosystems\"").WillReturnResult(sqlmock.NewResult(0, 0))
+	if err := s.DeleteEcosystem(ctx, "missing"); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("delete missing: %v", err)
+	}
+	mock.ExpectExec("DELETE FROM \"ecosystems\"").WillReturnResult(sqlmock.NewResult(0, 1))
+	if err := s.DeleteEcosystem(ctx, "e1"); err != nil {
+		t.Fatalf("delete: %v", err)
+	}
 	mock.ExpectQuery("SELECT m.id").WillReturnRows(sqlmock.NewRows([]string{"id", "hostname", "ecosystem_id", "ecosystem_name", "ipv4", "last_sync_at", "is_managed", "created_at", "updated_at"}).AddRow("m1", "one", "e1", "pay", "10.0.0.1", time.Now(), false, time.Now(), time.Now()))
 	if rows, err := s.ListMachines(ctx, "one", "e1"); err != nil || len(rows) != 1 {
 		t.Fatalf("machines: %v %v", rows, err)

@@ -1,15 +1,21 @@
+# Number of HTTP server Pods. Keep at least two for rolling upgrades.
 replicaCount: 2
 
 image:
+  # Override the tag for immutable deployments; the chart appVersion is used
+  # when this value is empty.
   repository: ghcr.io/thomasilliet/gfw
   pullPolicy: IfNotPresent
   tag: ""
+# References to registry credentials in the release namespace.
 imagePullSecrets: []
 
 nameOverride: ""
 fullnameOverride: ""
 
 serviceAccount:
+  # The application does not call the Kubernetes API, so token mounting stays
+  # disabled even when the chart creates the ServiceAccount.
   create: true
   automount: false
   annotations: {}
@@ -19,6 +25,7 @@ podAnnotations: {}
 podLabels: {}
 
 podSecurityContext:
+  # These defaults match the non-root UID/GID used by the container image.
   runAsNonRoot: true
   runAsUser: 1000
   runAsGroup: 1000
@@ -28,6 +35,7 @@ podSecurityContext:
     type: RuntimeDefault
 
 securityContext:
+  # Container hardening defaults are intentionally restrictive.
   allowPrivilegeEscalation: false
   capabilities:
     drop: ["ALL"]
@@ -40,11 +48,15 @@ securityContext:
     type: RuntimeDefault
 
 service:
+  # The Ingress targets this Service; NodePort and LoadBalancer also work when
+  # explicitly selected.
   type: ClusterIP
   port: 80
+  metricsPort: 9090
   annotations: {}
 
 ingress:
+  # Configure tls and the matching host when exposing GFW publicly.
   enabled: false
   className: ""
   annotations: {}
@@ -56,7 +68,11 @@ ingress:
   tls: []
 
 config:
+  # public_url and oidc_redirect_url must be browser-visible URLs. Development
+  # authentication is prohibited by the chart schema.
+  environment: production
   listen_address: ":8080"
+  metrics_listen_address: ":9090"
   public_url: "https://gfw.example.com"
   frontend_dir: "/app/frontend/.output/public"
   oidc_issuer: "https://identity.example.com"
@@ -70,21 +86,27 @@ config:
 # The chart intentionally deploys no PostgreSQL workload. Prefer an existing
 # Secret for the externally managed database and authentication credentials.
 secrets:
+  # existingSecret is recommended in production. When set, inline values below
+  # are ignored and keys maps GFW settings to Secret data keys.
   existingSecret: ""
   keys:
     databaseURL: database-url
     oidcClientSecret: oidc-client-secret
     sessionSecret: session-secret
+    adminToken: admin-token
   databaseURL: ""
   oidcClientSecret: ""
   sessionSecret: ""
+  adminToken: ""
 
 migration:
+  # Runs `gfw migrate up` as a pre-install/pre-upgrade Helm hook.
   enabled: true
   backoffLimit: 4
   ttlSecondsAfterFinished: 600
 
 resources:
+  # Defaults suit a small installation; tune from observed traffic and DNS load.
   requests:
     cpu: 50m
     memory: 64Mi
@@ -93,6 +115,7 @@ resources:
     memory: 512Mi
 
 probes:
+  # Readiness checks PostgreSQL connectivity; liveness checks the process only.
   liveness:
     initialDelaySeconds: 10
     periodSeconds: 10
@@ -105,26 +128,17 @@ probes:
     failureThreshold: 6
 
 podDisruptionBudget:
+  # With replicaCount: 1, disable this or set maxUnavailable instead.
   enabled: true
   minAvailable: 1
 
-networkPolicy:
-  enabled: true
-  ingress:
-    # Override for the labels used by the ingress controller namespace.
-    # Null restricts ingress to matching pods in the release namespace.
-    namespaceSelector: null
-    podSelector: {}
-  # Kubernetes NetworkPolicy cannot restrict external OIDC/PostgreSQL by
-  # DNS name. The default permits egress; replace with CNI-specific/CIDR rules.
-  egress:
-    - {}
-
 tmp:
+  # Writable scratch space available while the root filesystem is read-only.
   sizeLimit: 64Mi
 
 nodeSelector: {}
 tolerations: []
+# Prefer spreading replicas across nodes without making scheduling mandatory.
 affinity:
   podAntiAffinity:
     preferredDuringSchedulingIgnoredDuringExecution:
@@ -137,5 +151,6 @@ affinity:
 
 topologySpreadConstraints: []
 priorityClassName: ""
+# Must remain longer than the server's 15-second graceful-shutdown timeout.
 terminationGracePeriodSeconds: 30
 

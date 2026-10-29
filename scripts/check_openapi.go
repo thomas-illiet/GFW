@@ -16,14 +16,15 @@ type document struct {
 
 var required = map[string][]string{
 	"/health/live": {"get"}, "/health/ready": {"get"},
-	"/auth/login": {"get"}, "/auth/callback": {"get"}, "/auth/logout": {"post"}, "/auth/session": {"get"},
+	"/api/v1/public/instance": {"get"},
+	"/auth/login":             {"get"}, "/auth/callback": {"get"}, "/auth/logout": {"post"}, "/auth/session": {"get"},
 	"/api/v1/firewall/ecosystems/{ecosystem}/ips": {"get"}, "/api/v1/firewall/ips/{ipv4}": {"get"},
 	"/api/v1/admin/dashboard": {"get"}, "/api/v1/admin/ecosystems": {"get", "post"},
-	"/api/v1/admin/ecosystems/{id}": {"patch"}, "/api/v1/admin/machines": {"get", "post"},
+	"/api/v1/admin/ecosystems/{id}": {"patch", "delete"}, "/api/v1/admin/machines": {"get", "post"},
 	"/api/v1/admin/machines/{id}": {"delete"}, "/api/v1/admin/trusted-services": {"get", "post"},
 	"/api/v1/admin/trusted-services/{id}": {"patch", "delete"}, "/api/v1/admin/trusted-services/resolve": {"post"},
 	"/api/v1/admin/ingestion-keys": {"get", "post"}, "/api/v1/admin/ingestion-keys/{id}": {"delete"},
-	"/api/v1/ingestion/machines:upsert": {"post"},
+	"/api/v1/ingestion/machines": {"post"},
 }
 
 func main() {

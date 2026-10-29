@@ -14,6 +14,7 @@ import (
 	"github.com/thomasilliet/gfw/internal/auth"
 	"github.com/thomasilliet/gfw/internal/config"
 	resolver "github.com/thomasilliet/gfw/internal/dns"
+	appmetrics "github.com/thomasilliet/gfw/internal/metrics"
 	"github.com/thomasilliet/gfw/internal/store"
 )
 
@@ -29,6 +30,7 @@ type App struct {
 	mux             *http.ServeMux
 	cancel          context.CancelFunc
 	maintenanceDone chan struct{}
+	metrics         *appmetrics.Registry
 }
 
 // Repository defines the persistence operations used by HTTP handlers and maintenance.
@@ -38,6 +40,7 @@ type Repository interface {
 	ListEcosystems(context.Context) ([]store.Ecosystem, error)
 	CreateEcosystem(context.Context, string, string) (store.Ecosystem, error)
 	UpdateEcosystem(context.Context, string, string, bool) (store.Ecosystem, error)
+	DeleteEcosystem(context.Context, string) error
 	ListMachines(context.Context, string, string) ([]store.Machine, error)
 	UpsertMachine(context.Context, string, string, string, bool) (store.Machine, error)
 	DeleteMachine(context.Context, string) error
@@ -67,7 +70,7 @@ func New(ctx context.Context, cfg config.Config, s Repository) (*App, error) {
 		return nil, err
 	}
 	workerCtx, cancel := context.WithCancel(ctx)
-	a := &App{cfg: cfg, store: s, auth: am, mux: http.NewServeMux(), cancel: cancel, maintenanceDone: make(chan struct{})}
+	a := &App{cfg: cfg, store: s, auth: am, mux: http.NewServeMux(), cancel: cancel, maintenanceDone: make(chan struct{}), metrics: appmetrics.New()}
 	a.dns = resolver.New(s, cfg.DNSInterval, cfg.DNSTimeout)
 	a.dns.Start(workerCtx)
 	a.routes()
@@ -87,12 +90,18 @@ func (a *App) Close() {
 }
 
 // Handler returns the fully wrapped HTTP handler.
-func (a *App) Handler() http.Handler { return requestLog(securityHeaders(a.auth.Middleware(a.mux))) }
+func (a *App) Handler() http.Handler {
+	return a.metrics.Middleware(requestLog(securityHeaders(a.auth.Middleware(a.mux))))
+}
+
+// MetricsHandler returns the isolated Prometheus scrape endpoint.
+func (a *App) MetricsHandler() http.Handler { return a.metrics.Handler() }
 
 // routes registers all public and administration routes.
 func (a *App) routes() {
 	a.mux.HandleFunc("GET /health/live", func(w http.ResponseWriter, _ *http.Request) { writeJSON(w, 200, map[string]string{"status": "ok"}) })
 	a.mux.HandleFunc("GET /health/ready", a.ready)
+	a.mux.HandleFunc("GET /api/v1/public/instance", a.instance)
 	a.mux.HandleFunc("GET /auth/login", a.auth.Login)
 	a.mux.HandleFunc("GET /auth/callback", a.auth.Callback)
 	a.mux.HandleFunc("POST /auth/logout", a.auth.Logout)
@@ -103,6 +112,7 @@ func (a *App) routes() {
 	a.mux.Handle("GET /api/v1/admin/ecosystems", a.auth.Require("viewer")(http.HandlerFunc(a.ecosystems)))
 	a.mux.Handle("POST /api/v1/admin/ecosystems", a.auth.Require("admin")(http.HandlerFunc(a.ecosystems)))
 	a.mux.Handle("PATCH /api/v1/admin/ecosystems/{id}", a.auth.Require("admin")(http.HandlerFunc(a.ecosystemUpdate)))
+	a.mux.Handle("DELETE /api/v1/admin/ecosystems/{id}", a.auth.Require("admin")(http.HandlerFunc(a.ecosystemDelete)))
 	a.mux.Handle("GET /api/v1/admin/machines", a.auth.Require("viewer")(http.HandlerFunc(a.machines)))
 	a.mux.Handle("POST /api/v1/admin/machines", a.auth.Require("editor")(http.HandlerFunc(a.machines)))
 	a.mux.Handle("DELETE /api/v1/admin/machines/{id}", a.auth.Require("editor")(http.HandlerFunc(a.machineDelete)))
@@ -114,8 +124,13 @@ func (a *App) routes() {
 	a.mux.Handle("GET /api/v1/admin/ingestion-keys", a.auth.Require("admin")(http.HandlerFunc(a.ingestionKeys)))
 	a.mux.Handle("POST /api/v1/admin/ingestion-keys", a.auth.Require("admin")(http.HandlerFunc(a.ingestionKeys)))
 	a.mux.Handle("DELETE /api/v1/admin/ingestion-keys/{id}", a.auth.Require("admin")(http.HandlerFunc(a.revokeIngestionKey)))
-	a.mux.HandleFunc("POST /api/v1/ingestion/machines:upsert", a.ingestMachines)
+	a.mux.HandleFunc("POST /api/v1/ingestion/machines", a.ingestMachines)
 	a.mux.HandleFunc("GET /", a.frontend)
+}
+
+// instance returns the non-sensitive identity of this deployment.
+func (a *App) instance(w http.ResponseWriter, _ *http.Request) {
+	writeJSON(w, 200, map[string]string{"environment": a.cfg.Environment})
 }
 
 // maintenance periodically creates and prunes history partitions.

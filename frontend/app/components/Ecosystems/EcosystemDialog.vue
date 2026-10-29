@@ -13,7 +13,7 @@ watch(open, (v) => {
 })
 </script>
 <template>
-  <v-dialog v-model="open" max-width="520"
+  <v-dialog v-model="open" max-width="520" aria-label="Create ecosystem"
     ><v-card title="Create ecosystem"
       ><v-card-text
         ><v-form

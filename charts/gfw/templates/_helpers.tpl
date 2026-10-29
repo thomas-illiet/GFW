@@ -46,6 +46,11 @@ app.kubernetes.io/instance: {{ .Release.Name }}
     secretKeyRef:
       name: {{ include "gfw.secretName" . }}
       key: {{ .Values.secrets.keys.sessionSecret }}
+- name: GFW_ADMIN_TOKEN
+  valueFrom:
+    secretKeyRef:
+      name: {{ include "gfw.secretName" . }}
+      key: {{ .Values.secrets.keys.adminToken }}
 {{- end }}
 
 {{- define "gfw.volumeMounts" -}}

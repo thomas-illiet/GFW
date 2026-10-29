@@ -10,6 +10,7 @@ const auth = useAuthStore(),
   status = shallowRef<EcosystemStatus>(''),
   dialog = shallowRef(false),
   statusDialog = shallowRef(false),
+  deleteDialog = shallowRef(false),
   selectedEcosystem = shallowRef<Ecosystem | null>(null)
 const { ecosystems, loading, error } = r
 const filteredEcosystems = computed(() => {
@@ -61,6 +62,19 @@ async function confirmStatusChange() {
   await r.loadEcosystems()
   notifications.success(`Ecosystem ${e.IsActive ? 'disabled' : 'enabled'}`)
 }
+function requestDelete(ecosystem: Ecosystem) {
+  selectedEcosystem.value = ecosystem
+  deleteDialog.value = true
+}
+async function confirmDelete() {
+  const ecosystem = selectedEcosystem.value
+  if (!ecosystem) return
+  await r.mutation(`/api/v1/admin/ecosystems/${ecosystem.ID}`, 'DELETE')
+  deleteDialog.value = false
+  selectedEcosystem.value = null
+  await r.loadEcosystems()
+  notifications.success('Ecosystem deleted')
+}
 function exportEcosystems() {
   exportCsv(
     'great-firewall-ecosystems.csv',
@@ -83,12 +97,6 @@ function exportEcosystems() {
       ecosystem.UpdatedAt,
     ]),
   )
-}
-function viewAddresses(ecosystem: Ecosystem) {
-  void navigateTo({
-    path: '/effective-lists',
-    query: { ecosystem: ecosystem.Name },
-  })
 }
 </script>
 <template>
@@ -129,25 +137,27 @@ function viewAddresses(ecosystem: Ecosystem) {
             :headers="headers"
             :items="filteredEcosystems"
             item-value="ID"
-            :items-per-page="-1"
-            hide-default-footer
+            :items-per-page="10"
             ><template #[`item.MachineCount`]="{ item: e }">
-              <v-chip
+              <v-btn
                 prepend-icon="mdi-server-network"
                 size="small"
                 variant="tonal"
-                >{{ e.MachineCount }}</v-chip
+                color="primary"
+                :to="{ path: '/machines', query: { ecosystem: e.ID } }"
+                :aria-label="`View ${e.MachineCount} machines in ${e.DisplayName}`"
+                >{{ e.MachineCount }}</v-btn
               >
             </template>
             <template #[`item.IsActive`]="{ item: e }">
-              <v-chip
+              <v-btn
                 :color="e.IsActive ? 'success' : 'secondary'"
                 size="small"
                 variant="tonal"
-                :class="{ 'status-chip--clickable': auth.can('admin') }"
+                :disabled="!auth.can('admin')"
                 :aria-label="`${e.IsActive ? 'Disable' : 'Enable'} ${e.DisplayName}`"
                 @click="requestStatusChange(e)"
-                >{{ e.IsActive ? 'Active' : 'Inactive' }}</v-chip
+                >{{ e.IsActive ? 'Active' : 'Inactive' }}</v-btn
               >
             </template>
             <template #[`item.LastUsedAt`]="{ item: e }">
@@ -161,19 +171,38 @@ function viewAddresses(ecosystem: Ecosystem) {
               <AppRelativeTime :value="e.CreatedAt" prefix="Created" />
             </template>
             <template #[`item.actions`]="{ item: e }">
-              <v-tooltip text="View published addresses" location="top">
-                <template #activator="{ props: tooltipProps }">
-                  <v-btn
-                    v-bind="tooltipProps"
-                    icon="mdi-ip-network-outline"
-                    size="small"
-                    variant="text"
-                    color="primary"
-                    :aria-label="`View addresses for ${e.DisplayName}`"
-                    @click="viewAddresses(e)"
+              <AppActionMenu :aria-label="`Actions for ${e.DisplayName}`">
+                <v-list-item
+                  prepend-icon="mdi-server-network"
+                  title="View machines"
+                  :to="{ path: '/machines', query: { ecosystem: e.ID } }"
+                />
+                <template v-if="auth.can('admin')">
+                  <v-list-item
+                    :prepend-icon="
+                      e.IsActive
+                        ? 'mdi-pause-circle-outline'
+                        : 'mdi-play-circle-outline'
+                    "
+                    :title="
+                      e.IsActive ? 'Disable ecosystem' : 'Enable ecosystem'
+                    "
+                    @click="requestStatusChange(e)"
+                  />
+                  <v-divider class="my-1" />
+                  <v-list-item
+                    class="text-error"
+                    prepend-icon="mdi-delete-outline"
+                    title="Delete ecosystem"
+                    :subtitle="
+                      e.MachineCount
+                        ? `Also delete ${e.MachineCount} assigned machine${e.MachineCount === 1 ? '' : 's'}`
+                        : 'Permanently remove this ecosystem'
+                    "
+                    @click="requestDelete(e)"
                   />
                 </template>
-              </v-tooltip>
+              </AppActionMenu>
             </template>
             <template #no-data>
               <AppEmptyState
@@ -190,31 +219,45 @@ function viewAddresses(ecosystem: Ecosystem) {
     ><EcosystemsEcosystemDialog
       v-model="dialog"
       :loading="loading"
-      @save="create" /><AppConfirmDialog
+      @save="create" /><AppDeleteDialog
+      v-if="selectedEcosystem?.IsActive"
       v-model="statusDialog"
-      :title="
-        selectedEcosystem?.IsActive ? 'Disable ecosystem?' : 'Enable ecosystem?'
-      "
-      :text="
-        selectedEcosystem?.IsActive
-          ? 'Its public firewall list will no longer be available until the ecosystem is enabled again.'
-          : 'Its public firewall list will become available again immediately.'
-      "
-      :subject="selectedEcosystem?.DisplayName"
-      :confirm-label="selectedEcosystem?.IsActive ? 'Disable' : 'Enable'"
-      :confirm-icon="
-        selectedEcosystem?.IsActive
-          ? 'mdi-pause-circle-outline'
-          : 'mdi-play-circle-outline'
-      "
-      :confirm-color="selectedEcosystem?.IsActive ? 'warning' : 'success'"
-      :icon="
-        selectedEcosystem?.IsActive
-          ? 'mdi-pause-circle-outline'
-          : 'mdi-play-circle-outline'
-      "
+      asset-type="ecosystem"
+      :asset-name="selectedEcosystem?.DisplayName"
+      dialog-title="Disable ecosystem?"
+      eyebrow="Firewall list interruption"
+      description="This ecosystem will stop publishing its public firewall list."
+      warning-title="Firewall consumers will lose access"
+      impact="The list remains unavailable until an administrator enables the ecosystem again."
+      confirm-label="Disable ecosystem"
+      confirm-color="warning"
+      confirm-icon="mdi-pause-circle-outline"
+      icon="mdi-pause-circle-outline"
       :loading="loading"
-      @confirm="confirmStatusChange"
+      @confirm="confirmStatusChange" /><AppConfirmDialog
+      v-else
+      v-model="statusDialog"
+      title="Enable ecosystem?"
+      text="Its public firewall list will become available again immediately."
+      :subject="selectedEcosystem?.DisplayName"
+      confirm-label="Enable"
+      confirm-icon="mdi-play-circle-outline"
+      confirm-color="success"
+      icon="mdi-play-circle-outline"
+      :loading="loading"
+      @confirm="confirmStatusChange" /><AppDeleteDialog
+      v-model="deleteDialog"
+      asset-type="ecosystem"
+      :asset-name="selectedEcosystem?.DisplayName"
+      description="This ecosystem and its firewall list configuration will be permanently removed."
+      :impact="
+        selectedEcosystem?.MachineCount
+          ? `${selectedEcosystem.MachineCount} assigned machine${selectedEcosystem.MachineCount === 1 ? '' : 's'} will also be permanently deleted.`
+          : 'The ecosystem will be permanently removed. This action cannot be undone.'
+      "
+      confirm-label="Delete ecosystem"
+      :loading="loading"
+      @confirm="confirmDelete"
   /></v-container>
 </template>
 

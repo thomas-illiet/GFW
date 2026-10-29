@@ -3,6 +3,7 @@ import { nextTick } from 'vue'
 import { beforeAll, describe, expect, it } from 'vitest'
 
 import AppEmptyState from '../app/components/App/AppEmptyState.vue'
+import AppActionMenu from '../app/components/App/AppActionMenu.vue'
 import AppDeleteDialog from '../app/components/App/AppDeleteDialog.vue'
 import AppFirewallMark from '../app/components/App/AppFirewallMark.vue'
 import AppPageHeader from '../app/components/App/AppPageHeader.vue'
@@ -104,6 +105,17 @@ const dashboard: Dashboard = {
 }
 
 describe('shared application components', () => {
+  it('renders the shared actions menu trigger', async () => {
+    const actions = await mountSuspended(AppActionMenu, {
+      props: { ariaLabel: 'Actions for demo asset' },
+      slots: { default: '<div>Delete asset</div>' },
+    })
+    expect(actions.get('button').text()).toContain('Actions')
+    expect(actions.get('button').attributes('aria-label')).toBe(
+      'Actions for demo asset',
+    )
+  })
+
   it('renders the brand, page header, section and empty state', async () => {
     const brand = await mountSuspended(AppFirewallMark, { props: { size: 40 } })
     expect(brand.find('[aria-label="Great Firewall"]').exists()).toBe(true)
@@ -161,13 +173,11 @@ describe('shared application components', () => {
 
 describe('dashboard components', () => {
   it('renders all KPI, chart and breakdown sections', async () => {
-    expect(
-      (
-        await mountSuspended(DashboardRequestKpis, {
-          props: { value: dashboard.requests, activity: dashboard.activity },
-        })
-      ).text(),
-    ).toContain('Address coverage')
+    const requestKpis = await mountSuspended(DashboardRequestKpis, {
+      props: { value: dashboard.requests, activity: dashboard.activity },
+    })
+    expect(requestKpis.text()).toContain('Address coverage')
+    expect(requestKpis.text()).not.toContain('P95 latency')
     expect(
       (
         await mountSuspended(DashboardActivityKpis, {

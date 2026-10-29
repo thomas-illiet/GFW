@@ -63,13 +63,29 @@ const headers = [
           prefix="Synced"
           empty="Never synced" /></template
       ><template #[`item.actions`]="{ item }"
-        ><v-btn
-          v-if="canEdit && !item.IsManaged"
-          icon="mdi-delete-outline"
-          color="error"
-          variant="text"
-          aria-label="Delete machine"
-          @click="$emit('remove', item)" /></template
+        ><AppActionMenu
+          :disabled="!canEdit || item.IsManaged"
+          :disabled-hint="
+            item.IsManaged
+              ? 'Managed machines can only be changed by ingestion.'
+              : !canEdit
+                ? 'You do not have permission to change this machine.'
+                : ''
+          "
+          :aria-label="
+            item.IsManaged
+              ? `Actions unavailable for managed machine ${item.Hostname}`
+              : !canEdit
+                ? `Actions unavailable for ${item.Hostname}`
+                : `Actions for ${item.Hostname}`
+          "
+        >
+          <v-list-item
+            class="text-error"
+            prepend-icon="mdi-delete-outline"
+            title="Delete machine"
+            @click="$emit('remove', item)"
+          /> </AppActionMenu></template
       ><template #no-data
         ><AppEmptyState
           icon="mdi-server-network-off"

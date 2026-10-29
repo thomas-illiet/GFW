@@ -40,6 +40,15 @@ Les routes publiques de consultation du pare-feu ne dépendent pas de ces
 groupes. L'endpoint d'ingestion des machines utilise pour sa part une clé Bearer
 créée par un administrateur, et non la session OIDC de l'utilisateur.
 
+## Token administrateur pour l'API
+
+`GFW_ADMIN_TOKEN` fournit une identité technique disposant du rôle Admin sur
+les routes protégées. Le client transmet le secret avec
+`Authorization: Bearer <token>`. Le token doit contenir au moins 32 caractères
+en production, reste dans le Secret Kubernetes et n'est jamais renvoyé par
+l'API. Cette authentification est destinée aux automatisations administratives
+et ne remplace pas les clés d'ingestion limitées à l'inventaire des machines.
+
 Le frontend masque les actions indisponibles, mais le contrôle faisant foi est
 appliqué par le backend sur chaque route. Une requête sans session valide reçoit
 `401 authentication_required`; une session valide dont le rôle est insuffisant
@@ -51,5 +60,9 @@ session sont aussi protégées par un contrôle de même origine.
 Le mapping des groupes et la hiérarchie des rôles sont couverts par les tests du
 package `internal/auth`. La suite complète se lance avec `make verify`; les tests
 backend seuls avec `make test` (la cible exécute également les tests frontend).
-Le mode `--dev-auth` attribue toujours le rôle Admin au développeur local et ne
-valide donc pas l'intégration réelle avec un fournisseur OIDC.
+L'environnement Docker Compose démarre un véritable Keycloak avec un realm
+importé, un client confidentiel et trois utilisateurs Viewer, Editor et Admin.
+Il valide donc le même échange Authorization Code, le claim `groups`, la session
+signée et les contrôles RBAC que la production. Le mode `--dev-auth` reste
+disponible uniquement pour certains tests backend isolés ; il n'est plus utilisé
+par l'environnement de développement complet.

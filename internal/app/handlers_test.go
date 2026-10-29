@@ -14,6 +14,7 @@ import (
 	"github.com/thomasilliet/gfw/internal/auth"
 	"github.com/thomasilliet/gfw/internal/config"
 	resolver "github.com/thomasilliet/gfw/internal/dns"
+	appmetrics "github.com/thomasilliet/gfw/internal/metrics"
 	"github.com/thomasilliet/gfw/internal/store"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -39,6 +40,7 @@ func (f *fakeRepository) CreateEcosystem(context.Context, string, string) (store
 func (f *fakeRepository) UpdateEcosystem(context.Context, string, string, bool) (store.Ecosystem, error) {
 	return store.Ecosystem{ID: "e1"}, f.err
 }
+func (f *fakeRepository) DeleteEcosystem(context.Context, string) error { return f.err }
 func (f *fakeRepository) ListMachines(context.Context, string, string) ([]store.Machine, error) {
 	return []store.Machine{{ID: "m1"}}, f.err
 }
@@ -89,12 +91,12 @@ func (f *fakeRepository) DropExpiredPartitions(context.Context, time.Time, int) 
 // testApp constructs a routed application without background goroutines.
 func testApp(t *testing.T, repo *fakeRepository, frontend string) *App {
 	t.Helper()
-	cfg := config.Config{DevAuth: true, PublicURL: "http://example.test", FrontendDir: frontend, DNSInterval: time.Hour, DNSTimeout: time.Second, RetentionDays: 30}
+	cfg := config.Config{Environment: "development", DevAuth: true, PublicURL: "http://example.test", FrontendDir: frontend, DNSInterval: time.Hour, DNSTimeout: time.Second, RetentionDays: 30}
 	am, err := auth.New(context.Background(), cfg)
 	if err != nil {
 		t.Fatal(err)
 	}
-	a := &App{cfg: cfg, store: repo, auth: am, mux: http.NewServeMux()}
+	a := &App{cfg: cfg, store: repo, auth: am, mux: http.NewServeMux(), metrics: appmetrics.New()}
 	a.dns = resolver.New(repo, time.Hour, time.Second)
 	a.routes()
 	return a
@@ -128,6 +130,11 @@ func TestInfrastructureHandlers(t *testing.T) {
 	if w.Code != 200 || w.Header().Get("X-Frame-Options") != "DENY" {
 		t.Fatal("SPA or security headers missing")
 	}
+	metricsResponse := httptest.NewRecorder()
+	a.MetricsHandler().ServeHTTP(metricsResponse, httptest.NewRequest(http.MethodGet, "/metrics", nil))
+	if metricsResponse.Code != http.StatusOK || !strings.Contains(metricsResponse.Body.String(), "gfw_http_requests_total") {
+		t.Fatal("application metrics missing")
+	}
 	a.store.(*fakeRepository).err = errors.New("db")
 	if w := request(a, "GET", "/health/ready", ""); w.Code != 503 {
 		t.Fatalf("ready=%d", w.Code)
@@ -149,6 +156,7 @@ func TestAdministrationSuccessPaths(t *testing.T) {
 		{"GET", "/api/v1/admin/dashboard", "", 200}, {"GET", "/api/v1/admin/ecosystems", "", 200},
 		{"POST", "/api/v1/admin/ecosystems", `{"name":"pay","displayName":"Pay"}`, 201},
 		{"PATCH", "/api/v1/admin/ecosystems/e1", `{"displayName":"Pay","isActive":true}`, 200},
+		{"DELETE", "/api/v1/admin/ecosystems/e1", "", 204},
 		{"GET", "/api/v1/admin/machines", "", 200}, {"POST", "/api/v1/admin/machines", `{"Hostname":"one","EcosystemID":"e1","IPv4":"10.0.0.1"}`, 201},
 		{"DELETE", "/api/v1/admin/machines/m1", "", 204}, {"GET", "/api/v1/admin/trusted-services", "", 200},
 		{"POST", "/api/v1/admin/trusted-services", `{"Name":"dns","Description":"DNS","IsActive":true,"Hostnames":["example.test"]}`, 201},
@@ -168,6 +176,14 @@ func TestAdministrationSuccessPaths(t *testing.T) {
 	}
 }
 
+func TestInstanceReturnsEnvironment(t *testing.T) {
+	a := testApp(t, &fakeRepository{}, t.TempDir())
+	w := request(a, "GET", "/api/v1/public/instance", "")
+	if w.Code != 200 || w.Body.String() != "{\"environment\":\"development\"}\n" {
+		t.Fatalf("instance=%d %s", w.Code, w.Body.String())
+	}
+}
+
 // TestFirewallAndIngestion covers public firewall responses, ETags, and ingestion.
 func TestFirewallAndIngestion(t *testing.T) {
 	repo := &fakeRepository{}
@@ -183,12 +199,12 @@ func TestFirewallAndIngestion(t *testing.T) {
 	if w = request(a, "GET", "/api/v1/firewall/ips/10.0.0.1", ""); w.Code != 200 {
 		t.Fatalf("IP: %d", w.Code)
 	}
-	w = request(a, "POST", "/api/v1/ingestion/machines:upsert", `{"machines":[{"Hostname":"one","EcosystemID":"e1","IPv4":"10.0.0.1"}]}`)
+	w = request(a, "POST", "/api/v1/ingestion/machines", `{"machines":[{"Hostname":"one","EcosystemID":"e1","IPv4":"10.0.0.1"}]}`)
 	w.Result().Request = nil
 	if w.Code != 401 {
 		t.Fatalf("missing key: %d", w.Code)
 	}
-	req := httptest.NewRequest("POST", "/api/v1/ingestion/machines:upsert", strings.NewReader(`{"machines":[]}`))
+	req := httptest.NewRequest("POST", "/api/v1/ingestion/machines", strings.NewReader(`{"machines":[]}`))
 	req.Header.Set("Authorization", "Bearer prefix.secret")
 	w = httptest.NewRecorder()
 	a.Handler().ServeHTTP(w, req)
@@ -250,6 +266,7 @@ func TestRepositoryFailures(t *testing.T) {
 		{"GET", "/api/v1/admin/dashboard", "", 500}, {"GET", "/api/v1/admin/ecosystems", "", 500},
 		{"POST", "/api/v1/admin/ecosystems", `{"name":"x","displayName":"X"}`, 409},
 		{"PATCH", "/api/v1/admin/ecosystems/e", `{"displayName":"X"}`, 404},
+		{"DELETE", "/api/v1/admin/ecosystems/e", "", 500},
 		{"GET", "/api/v1/admin/machines", "", 500}, {"POST", "/api/v1/admin/machines", `{}`, 400},
 		{"DELETE", "/api/v1/admin/machines/m", "", 404}, {"GET", "/api/v1/admin/trusted-services", "", 500},
 		{"POST", "/api/v1/admin/trusted-services", `{}`, 409}, {"PATCH", "/api/v1/admin/trusted-services/t", `{}`, 404},
@@ -267,6 +284,9 @@ func TestRepositoryFailures(t *testing.T) {
 		t.Fatal(w.Code)
 	}
 	if w := request(a, "GET", "/api/v1/firewall/ips/10.0.0.9", ""); w.Code != 404 {
+		t.Fatal(w.Code)
+	}
+	if w := request(a, "DELETE", "/api/v1/admin/ecosystems/missing", ""); w.Code != 404 {
 		t.Fatal(w.Code)
 	}
 }

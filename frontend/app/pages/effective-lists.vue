@@ -9,6 +9,7 @@ const route = useRoute(),
   version = shallowRef('')
 let requestSequence = 0
 const { ecosystems, loading, error } = r
+const ecosystemSelect = useTemplateRef('ecosystemSelect')
 const headers = [
   { title: 'IP address', key: 'IPv4', align: 'center' as const },
   { title: 'Source', key: 'SourceType', align: 'center' as const },
@@ -86,6 +87,7 @@ function exportEffectiveList() {
       ><v-col cols="12"
         ><v-card class="effective-controls pa-3"
           ><v-select
+            ref="ecosystemSelect"
             v-model="ecosystem"
             class="effective-controls__select"
             density="comfortable"
@@ -117,8 +119,7 @@ function exportEffectiveList() {
             :headers="headers"
             :items="items"
             item-value="SourceID"
-            :items-per-page="-1"
-            hide-default-footer
+            :items-per-page="25"
             ><template #[`item.IPv4`]="{ item: i }">
               <code>{{ i.IPv4 }}</code>
             </template>
@@ -139,7 +140,12 @@ function exportEffectiveList() {
             v-else-if="!loading"
             icon="mdi-format-list-checks"
             title="No list loaded"
-            text="Choose an ecosystem to load its effective list." /></AppSectionCard></v-col></v-row
+            text="Choose an ecosystem to load its effective list."
+            action-label="Choose an ecosystem"
+            action-icon="mdi-cube-search-outline"
+            @action="
+              ecosystemSelect?.focus()
+            " /></AppSectionCard></v-col></v-row
   ></v-container>
 </template>
 

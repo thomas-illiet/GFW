@@ -78,6 +78,36 @@ func TestAnonymousAndExpiredMiddleware(t *testing.T) {
 	}
 }
 
+// TestAdminTokenMiddleware covers accepted and rejected administrator API credentials.
+func TestAdminTokenMiddleware(t *testing.T) {
+	m := &Manager{cfg: config.Config{AdminToken: "01234567890123456789012345678901"}}
+	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		u, ok := UserFrom(r.Context())
+		if !ok || u.Role != "admin" || u.Subject != "admin-token" {
+			t.Fatalf("unexpected token identity: %+v", u)
+		}
+		w.WriteHeader(http.StatusNoContent)
+	})
+	for _, test := range []struct {
+		header string
+		want   int
+	}{
+		{header: "Bearer 01234567890123456789012345678901", want: http.StatusNoContent},
+		{header: "bearer 01234567890123456789012345678901", want: http.StatusNoContent},
+		{header: "Bearer invalid", want: http.StatusUnauthorized},
+		{header: "Basic 01234567890123456789012345678901", want: http.StatusUnauthorized},
+		{want: http.StatusUnauthorized},
+	} {
+		req := httptest.NewRequest(http.MethodGet, "/", nil)
+		req.Header.Set("Authorization", test.header)
+		w := httptest.NewRecorder()
+		m.Middleware(m.Require("admin")(next)).ServeHTTP(w, req)
+		if w.Code != test.want {
+			t.Fatalf("header %q got %d want %d", test.header, w.Code, test.want)
+		}
+	}
+}
+
 // TestSessionSigning covers valid, malformed, tampered, and expired cookies.
 func TestSessionSigning(t *testing.T) {
 	m, _ := New(context.Background(), config.Config{DevAuth: true})
