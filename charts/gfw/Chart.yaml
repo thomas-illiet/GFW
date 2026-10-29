@@ -1,0 +1,11 @@
+apiVersion: v2
+name: gfw
+description: Rootless production deployment for the Great Firewall control plane
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+kubeVersion: ">=1.27.0-0"
+annotations:
+  artifacthub.io/containsSecurityUpdates: "false"
+  artifacthub.io/license: MIT
+

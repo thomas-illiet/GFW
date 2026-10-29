@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="100%" viewBox="0 0 1200 560" role="img" aria-labelledby="title desc" preserveAspectRatio="xMidYMid meet">
+  <title id="title">Flux d'une requête HTTP</title>
+  <desc id="desc">Une requête traverse la sécurité, l'authentification et le handler métier avant d'utiliser un repository puis PostgreSQL; la réponse revient avec encodage, ETag et historique.</desc>
+  <defs>
+    <linearGradient id="header" x1="0" x2="1"><stop stop-color="#364fc7"/><stop offset="1" stop-color="#4c6ef5"/></linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="135%"><feDropShadow dx="0" dy="4" stdDeviation="5" flood-color="#172033" flood-opacity=".12"/></filter>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto"><path d="M0 0L0 6L9 3z" fill="#5c677d"/></marker>
+    <marker id="return" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto"><path d="M0 0L0 6L9 3z" fill="#2f9e44"/></marker>
+    <style>
+      .title{font:700 30px system-ui,sans-serif;fill:#fff}.subtitle{font:15px system-ui,sans-serif;fill:#dbe4ff}.step{font:700 12px system-ui,sans-serif;fill:#4c6ef5;text-anchor:middle;letter-spacing:1px}
+      .card{fill:#fff;stroke:#bac8ff;stroke-width:2;rx:15;filter:url(#shadow)}.data{fill:#ebfbee;stroke:#69db7c}.name{font:700 17px system-ui,sans-serif;fill:#172033;text-anchor:middle}
+      .detail{font:13px system-ui,sans-serif;fill:#5c677d;text-anchor:middle}.edge{fill:none;stroke:#5c677d;stroke-width:2.5;marker-end:url(#arrow)}.back{fill:none;stroke:#2f9e44;stroke-width:3;marker-end:url(#return)}
+      .back-label{font:700 14px system-ui,sans-serif;fill:#2b8a3e;text-anchor:middle}.note{font:13px system-ui,sans-serif;fill:#667085;text-anchor:middle}
+    </style>
+  </defs>
+  <rect width="1200" height="560" fill="#fff" rx="20"/>
+  <rect width="1200" height="92" fill="url(#header)" rx="20"/><rect y="72" width="1200" height="20" fill="url(#header)"/>
+  <text class="title" x="42" y="42">Flux d'une requête HTTP</text><text class="subtitle" x="42" y="68">Du client à PostgreSQL, puis retour d'une réponse traçable et cacheable</text>
+
+  <text class="step" x="110" y="145">1 · ENTRÉE</text><rect class="card" x="30" y="165" width="160" height="116"/>
+  <text class="name" x="110" y="207">Client</text><text class="detail" x="110" y="236">API publique</text><text class="detail" x="110" y="258">ou administration</text>
+  <text class="step" x="306" y="145">2 · PROTECTION</text><rect class="card" x="226" y="165" width="160" height="116"/>
+  <text class="name" x="306" y="207">Middleware</text><text class="detail" x="306" y="236">headers · journal</text><text class="detail" x="306" y="258">session · rôle · CSRF</text>
+  <text class="step" x="502" y="145">3 · DOMAINE</text><rect class="card" x="422" y="165" width="160" height="116"/>
+  <text class="name" x="502" y="207">Handler</text><text class="detail" x="502" y="236">validation stricte</text><text class="detail" x="502" y="258">règles métier</text>
+  <text class="step" x="698" y="145">4 · CONTRAT</text><rect class="card" x="618" y="165" width="160" height="116"/>
+  <text class="name" x="698" y="207">Repository</text><text class="detail" x="698" y="236">interface injectée</text><text class="detail" x="698" y="258">erreurs métier stables</text>
+  <text class="step" x="894" y="145">5 · DONNÉES</text><rect class="card" x="814" y="165" width="160" height="116"/>
+  <text class="name" x="894" y="207">GORM</text><text class="detail" x="894" y="236">requêtes · transaction</text><text class="detail" x="894" y="258">SQL spécialisé</text>
+  <text class="step" x="1090" y="145">6 · STOCKAGE</text><rect class="card data" x="1010" y="165" width="160" height="116"/>
+  <text class="name" x="1090" y="207">PostgreSQL</text><text class="detail" x="1090" y="236">catalogue · historique</text><text class="detail" x="1090" y="258">audit · partitions</text>
+  <path class="edge" d="M190 223H216"/><path class="edge" d="M386 223H412"/><path class="edge" d="M582 223H608"/><path class="edge" d="M778 223H804"/><path class="edge" d="M974 223H1000"/>
+
+  <path class="back" d="M1090 296V384H110V296"/>
+  <text class="back-label" x="600" y="363">Réponse HTTP : JSON ou texte · ETag stable · statut et historique détaillé</text>
+  <text class="note" x="600" y="430">Les erreurs techniques sont traduites en enveloppes API stables avant de quitter le handler.</text>
+  <rect x="250" y="462" width="700" height="58" rx="12" fill="#f8f9fa" stroke="#dee2e6"/>
+  <text class="note" x="600" y="486">Points observables : méthode · chemin · durée · statut · cache hit · volume d'adresses</text>
+  <text class="note" x="600" y="507">Les secrets et les hashes d'authentification ne sont jamais renvoyés au client.</text>
+</svg>

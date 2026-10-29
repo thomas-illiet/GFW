@@ -1,0 +1,4 @@
+machine,ecosystem,ip
+payments-api-01,payments,192.0.2.10
+payments-worker-01,payments,192.0.2.11
+catalog-api-01,catalog,198.51.100.20

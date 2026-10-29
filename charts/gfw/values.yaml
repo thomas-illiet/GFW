@@ -1,0 +1,141 @@
+replicaCount: 2
+
+image:
+  repository: ghcr.io/thomasilliet/gfw
+  pullPolicy: IfNotPresent
+  tag: ""
+imagePullSecrets: []
+
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  automount: false
+  annotations: {}
+  name: ""
+
+podAnnotations: {}
+podLabels: {}
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+  fsGroupChangePolicy: OnRootMismatch
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop: ["ALL"]
+  privileged: false
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  seccompProfile:
+    type: RuntimeDefault
+
+service:
+  type: ClusterIP
+  port: 80
+  annotations: {}
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts:
+    - host: gfw.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+
+config:
+  listen_address: ":8080"
+  public_url: "https://gfw.example.com"
+  frontend_dir: "/app/frontend/.output/public"
+  oidc_issuer: "https://identity.example.com"
+  oidc_client_id: "great-firewall"
+  oidc_redirect_url: "https://gfw.example.com/auth/callback"
+  dev_auth: false
+  dns_interval: 15m
+  dns_timeout: 5s
+  retention_days: 365
+
+# The chart intentionally deploys no PostgreSQL workload. Prefer an existing
+# Secret for the externally managed database and authentication credentials.
+secrets:
+  existingSecret: ""
+  keys:
+    databaseURL: database-url
+    oidcClientSecret: oidc-client-secret
+    sessionSecret: session-secret
+  databaseURL: ""
+  oidcClientSecret: ""
+  sessionSecret: ""
+
+migration:
+  enabled: true
+  backoffLimit: 4
+  ttlSecondsAfterFinished: 600
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    cpu: "1"
+    memory: 512Mi
+
+probes:
+  liveness:
+    initialDelaySeconds: 10
+    periodSeconds: 10
+    timeoutSeconds: 2
+    failureThreshold: 3
+  readiness:
+    initialDelaySeconds: 5
+    periodSeconds: 5
+    timeoutSeconds: 2
+    failureThreshold: 6
+
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
+networkPolicy:
+  enabled: true
+  ingress:
+    # Override for the labels used by the ingress controller namespace.
+    # Null restricts ingress to matching pods in the release namespace.
+    namespaceSelector: null
+    podSelector: {}
+  # Kubernetes NetworkPolicy cannot restrict external OIDC/PostgreSQL by
+  # DNS name. The default permits egress; replace with CNI-specific/CIDR rules.
+  egress:
+    - {}
+
+tmp:
+  sizeLimit: 64Mi
+
+nodeSelector: {}
+tolerations: []
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        podAffinityTerm:
+          topologyKey: kubernetes.io/hostname
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: gfw
+
+topologySpreadConstraints: []
+priorityClassName: ""
+terminationGracePeriodSeconds: 30
+

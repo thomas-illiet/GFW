@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="100%" viewBox="0 0 1200 760" role="img" aria-labelledby="title desc" preserveAspectRatio="xMidYMid meet">
+  <title id="title">Architecture des composants du backend Great Firewall</title>
+  <desc id="desc">Le binaire Cobra charge la configuration Viper, démarre l'application HTTP et ses workers, puis accède à PostgreSQL par des repositories GORM.</desc>
+  <defs>
+    <linearGradient id="header" x1="0" x2="1"><stop stop-color="#364fc7"/><stop offset="1" stop-color="#4c6ef5"/></linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="130%"><feDropShadow dx="0" dy="4" stdDeviation="5" flood-color="#172033" flood-opacity=".12"/></filter>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto"><path d="M0 0L0 6L9 3z" fill="#5c677d"/></marker>
+    <style>
+      .title{font:700 30px system-ui,sans-serif;fill:#fff}.subtitle{font:15px system-ui,sans-serif;fill:#dbe4ff}
+      .lane{font:700 13px system-ui,sans-serif;fill:#667085;letter-spacing:1.5px}.card{fill:#fff;stroke:#bac8ff;stroke-width:2;rx:16;filter:url(#shadow)}
+      .worker{fill:#f8f9ff;stroke:#91a7ff}.database{fill:#ebfbee;stroke:#69db7c}.name{font:700 19px system-ui,sans-serif;fill:#172033;text-anchor:middle}
+      .detail{font:14px system-ui,sans-serif;fill:#5c677d;text-anchor:middle}.edge{fill:none;stroke:#5c677d;stroke-width:2.5;marker-end:url(#arrow)}
+      .edge-label{font:12px system-ui,sans-serif;fill:#667085;text-anchor:middle}.boundary{fill:#f8f9fa;stroke:#dee2e6;stroke-width:1.5;stroke-dasharray:7 6;rx:22}
+    </style>
+  </defs>
+  <rect width="1200" height="760" fill="#fff" rx="20"/>
+  <rect width="1200" height="92" fill="url(#header)" rx="20"/><rect y="72" width="1200" height="20" fill="url(#header)"/>
+  <text class="title" x="42" y="42">Great Firewall — architecture backend</text>
+  <text class="subtitle" x="42" y="68">Séparation CLI, application, workers et persistance PostgreSQL</text>
+
+  <text class="lane" x="42" y="132">DÉMARRAGE ET CONFIGURATION</text>
+  <rect class="card" x="42" y="154" width="260" height="112"/>
+  <text class="name" x="172" y="194">Cobra CLI</text><text class="detail" x="172" y="224">serve · migrate · version</text><text class="detail" x="172" y="247">signaux et arrêt gracieux</text>
+  <rect class="card" x="360" y="154" width="260" height="112"/>
+  <text class="name" x="490" y="194">Viper</text><text class="detail" x="490" y="224">flags › environnement</text><text class="detail" x="490" y="247">› YAML › valeurs par défaut</text>
+  <path class="edge" d="M302 210H350"/><text class="edge-label" x="326" y="198">charge</text>
+
+  <text class="lane" x="42" y="322">APPLICATION</text>
+  <rect class="boundary" x="30" y="340" width="1140" height="192"/>
+  <rect class="card" x="56" y="376" width="286" height="116"/>
+  <text class="name" x="199" y="415">Application HTTP</text><text class="detail" x="199" y="445">routes et handlers métier</text><text class="detail" x="199" y="469">JSON · texte · ETag · historique</text>
+  <rect class="card worker" x="392" y="376" width="220" height="116"/>
+  <text class="name" x="502" y="415">Authentification</text><text class="detail" x="502" y="445">OIDC · sessions signées</text><text class="detail" x="502" y="469">Viewer · Editor · Admin</text>
+  <rect class="card worker" x="662" y="376" width="220" height="116"/>
+  <text class="name" x="772" y="415">Worker DNS</text><text class="detail" x="772" y="445">résolution IPv4</text><text class="detail" x="772" y="469">rafraîchissement périodique</text>
+  <rect class="card worker" x="932" y="376" width="212" height="116"/>
+  <text class="name" x="1038" y="415">Maintenance</text><text class="detail" x="1038" y="445">création et rétention</text><text class="detail" x="1038" y="469">des partitions</text>
+  <path class="edge" d="M620 210H1075V366"/><text class="edge-label" x="850" y="198">Config validée</text>
+  <path class="edge" d="M342 434H382"/><path class="edge" d="M612 434H652"/><path class="edge" d="M882 434H922"/>
+
+  <text class="lane" x="42" y="586">PERSISTANCE</text>
+  <rect class="card" x="188" y="610" width="430" height="110"/>
+  <text class="name" x="403" y="650">Repositories GORM</text><text class="detail" x="403" y="680">CRUD · transactions · interfaces par domaine</text><text class="detail" x="403" y="702">SQL explicite pour les fonctions PostgreSQL avancées</text>
+  <rect class="card database" x="760" y="610" width="252" height="110"/>
+  <text class="name" x="886" y="650">PostgreSQL</text><text class="detail" x="886" y="680">migrations SQL versionnées</text><text class="detail" x="886" y="702">inet · agrégats · partitions</text>
+  <path class="edge" d="M199 492V568H403V600"/><path class="edge" d="M772 492V554H540V600"/><path class="edge" d="M1038 492V568H602V600"/>
+  <path class="edge" d="M618 665H750"/><text class="edge-label" x="684" y="653">driver PostgreSQL</text>
+</svg>

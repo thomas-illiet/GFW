@@ -1,0 +1,492 @@
+openapi: 3.1.0
+info:
+  title: Great Firewall API
+  version: 1.0.0
+  description: API contract versioned independently from the GFW application release.
+servers:
+  - url: /
+tags:
+  - { name: Health }
+  - { name: Authentication }
+  - { name: Firewall }
+  - { name: Administration }
+  - { name: Ingestion }
+paths:
+  /health/live:
+    get:
+      tags: [Health]
+      summary: Report process liveness
+      responses:
+        "200": { $ref: "#/components/responses/Health" }
+  /health/ready:
+    get:
+      tags: [Health]
+      summary: Report database readiness
+      responses:
+        "200": { $ref: "#/components/responses/Health" }
+        "503": { $ref: "#/components/responses/Problem" }
+  /auth/login:
+    get:
+      tags: [Authentication]
+      summary: Start the OIDC authorization flow
+      responses:
+        "302": { description: Redirect to the identity provider }
+  /auth/callback:
+    get:
+      tags: [Authentication]
+      summary: Complete the OIDC authorization flow
+      parameters:
+        - { in: query, name: code, required: true, schema: { type: string } }
+        - { in: query, name: state, required: true, schema: { type: string } }
+      responses:
+        "302": { description: Session created and redirected to the application }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+  /auth/logout:
+    post:
+      tags: [Authentication]
+      summary: Clear the browser session
+      responses:
+        "302": { description: Session cleared and redirected to login }
+  /auth/session:
+    get:
+      tags: [Authentication]
+      summary: Return the authenticated user
+      security: [{ session: [] }]
+      responses:
+        "200":
+          description: Current session
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/User" }
+        "401": { $ref: "#/components/responses/Problem" }
+  /api/v1/firewall/ecosystems/{ecosystem}/ips:
+    get:
+      tags: [Firewall]
+      summary: Get the effective IPv4 list for an ecosystem
+      parameters:
+        - { $ref: "#/components/parameters/EcosystemName" }
+        - in: query
+          name: format
+          schema: { type: string, enum: [json, txt], default: json }
+        - { $ref: "#/components/parameters/IfNoneMatch" }
+      responses:
+        "200":
+          description: Effective list
+          headers: { ETag: { schema: { type: string } } }
+          content:
+            application/json: { schema: { $ref: "#/components/schemas/FirewallList" } }
+            text/plain: { schema: { type: string } }
+        "304": { description: List unchanged; access is still recorded }
+        "400": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "500": { $ref: "#/components/responses/Problem" }
+  /api/v1/firewall/ips/{ipv4}:
+    get:
+      tags: [Firewall]
+      summary: Find current sources for an IPv4 address
+      parameters:
+        - in: path
+          name: ipv4
+          required: true
+          schema: { type: string, format: ipv4 }
+        - { $ref: "#/components/parameters/IfNoneMatch" }
+      responses:
+        "200":
+          description: Matching sources
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ipv4, items]
+                properties:
+                  ipv4: { type: string, format: ipv4 }
+                  items: { type: array, items: { $ref: "#/components/schemas/EffectiveIP" } }
+        "304": { description: Response unchanged }
+        "400": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "500": { $ref: "#/components/responses/Problem" }
+  /api/v1/admin/dashboard:
+    get:
+      tags: [Administration]
+      summary: Get request and address activity metrics
+      security: [{ session: [] }]
+      parameters:
+        - in: query
+          name: window
+          schema: { type: string, enum: [24h, 7d, 30d], default: 24h }
+      responses:
+        "200":
+          description: Dashboard metrics
+          content: { application/json: { schema: { $ref: "#/components/schemas/Dashboard" } } }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "500": { $ref: "#/components/responses/Problem" }
+  /api/v1/admin/ecosystems:
+    get:
+      tags: [Administration]
+      summary: List ecosystems
+      security: [{ session: [] }]
+      responses:
+        "200": { $ref: "#/components/responses/EcosystemList" }
+        "401": { $ref: "#/components/responses/Problem" }
+    post:
+      tags: [Administration]
+      summary: Create an ecosystem
+      security: [{ session: [] }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/EcosystemCreate" } } }
+      responses:
+        "201": { description: Created ecosystem, content: { application/json: { schema: { $ref: "#/components/schemas/Ecosystem" } } } }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+  /api/v1/admin/ecosystems/{id}:
+    patch:
+      tags: [Administration]
+      summary: Update an ecosystem
+      security: [{ session: [] }]
+      parameters: [{ $ref: "#/components/parameters/ResourceID" }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/EcosystemUpdate" } } }
+      responses:
+        "200": { description: Updated ecosystem, content: { application/json: { schema: { $ref: "#/components/schemas/Ecosystem" } } } }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+  /api/v1/admin/machines:
+    get:
+      tags: [Administration]
+      summary: List machines
+      security: [{ session: [] }]
+      parameters:
+        - { in: query, name: search, schema: { type: string } }
+        - { in: query, name: ecosystemId, schema: { type: string, format: uuid } }
+      responses:
+        "200": { $ref: "#/components/responses/MachineList" }
+        "401": { $ref: "#/components/responses/Problem" }
+    post:
+      tags: [Administration]
+      summary: Create or update a manually managed machine
+      security: [{ session: [] }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/MachineInput" } } }
+      responses:
+        "201": { description: Upserted machine, content: { application/json: { schema: { $ref: "#/components/schemas/Machine" } } } }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+  /api/v1/admin/machines/{id}:
+    delete:
+      tags: [Administration]
+      summary: Delete a manually managed machine
+      security: [{ session: [] }]
+      parameters: [{ $ref: "#/components/parameters/ResourceID" }]
+      responses:
+        "204": { description: Machine deleted }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+  /api/v1/admin/trusted-services:
+    get:
+      tags: [Administration]
+      summary: List trusted services
+      security: [{ session: [] }]
+      responses:
+        "200": { $ref: "#/components/responses/TrustedServiceList" }
+        "401": { $ref: "#/components/responses/Problem" }
+    post:
+      tags: [Administration]
+      summary: Create a trusted service
+      security: [{ session: [] }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/TrustedServiceInput" } } }
+      responses:
+        "201": { description: Created service, content: { application/json: { schema: { $ref: "#/components/schemas/TrustedService" } } } }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+  /api/v1/admin/trusted-services/{id}:
+    patch:
+      tags: [Administration]
+      summary: Update a trusted service
+      security: [{ session: [] }]
+      parameters: [{ $ref: "#/components/parameters/ResourceID" }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/TrustedServiceInput" } } }
+      responses:
+        "200": { description: Updated service, content: { application/json: { schema: { $ref: "#/components/schemas/TrustedService" } } } }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+    delete:
+      tags: [Administration]
+      summary: Delete a trusted service
+      security: [{ session: [] }]
+      parameters: [{ $ref: "#/components/parameters/ResourceID" }]
+      responses:
+        "204": { description: Service deleted }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+  /api/v1/admin/trusted-services/resolve:
+    post:
+      tags: [Administration]
+      summary: Refresh all trusted DNS entries
+      security: [{ session: [] }]
+      responses:
+        "200":
+          description: Refresh completed
+          content: { application/json: { schema: { type: object, properties: { status: { const: resolved } } } } }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "500": { $ref: "#/components/responses/Problem" }
+  /api/v1/admin/ingestion-keys:
+    get:
+      tags: [Administration]
+      summary: List ingestion keys
+      security: [{ session: [] }]
+      responses:
+        "200": { $ref: "#/components/responses/IngestionKeyList" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+    post:
+      tags: [Administration]
+      summary: Create an ingestion key
+      security: [{ session: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string, minLength: 1 }
+                expiresAt: { type: [string, "null"], format: date-time }
+      responses:
+        "201":
+          description: Key created; secret is returned only once
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [key, secret]
+                properties:
+                  key: { $ref: "#/components/schemas/IngestionKey" }
+                  secret: { type: string }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+  /api/v1/admin/ingestion-keys/{id}:
+    delete:
+      tags: [Administration]
+      summary: Revoke an ingestion key
+      security: [{ session: [] }]
+      parameters: [{ $ref: "#/components/parameters/ResourceID" }]
+      responses:
+        "204": { description: Key revoked }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+  /api/v1/ingestion/machines:upsert:
+    post:
+      tags: [Ingestion]
+      summary: Partially upsert managed machines
+      security: [{ ingestionKey: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [machines]
+              properties:
+                machines: { type: array, items: { $ref: "#/components/schemas/MachineInput" } }
+      responses:
+        "200":
+          description: Batch upserted
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, upserted]
+                properties:
+                  items: { type: array, items: { $ref: "#/components/schemas/Machine" } }
+                  upserted: { type: integer, minimum: 0 }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+components:
+  securitySchemes:
+    ingestionKey: { type: http, scheme: bearer }
+    session: { type: apiKey, in: cookie, name: gfw_session }
+  parameters:
+    ResourceID: { in: path, name: id, required: true, schema: { type: string, format: uuid } }
+    EcosystemName: { in: path, name: ecosystem, required: true, schema: { type: string, pattern: "^[a-z0-9]+(?:-[a-z0-9]+)*$" } }
+    IfNoneMatch: { in: header, name: If-None-Match, schema: { type: string } }
+  responses:
+    Health:
+      description: Health status
+      content: { application/json: { schema: { type: object, required: [status], properties: { status: { const: ok } } } } }
+    Problem:
+      description: Structured error
+      content: { application/json: { schema: { $ref: "#/components/schemas/Problem" } } }
+    EcosystemList:
+      description: Ecosystem collection
+      content: { application/json: { schema: { $ref: "#/components/schemas/EcosystemCollection" } } }
+    MachineList:
+      description: Machine collection
+      content: { application/json: { schema: { $ref: "#/components/schemas/MachineCollection" } } }
+    TrustedServiceList:
+      description: Trusted-service collection
+      content: { application/json: { schema: { $ref: "#/components/schemas/TrustedServiceCollection" } } }
+    IngestionKeyList:
+      description: Ingestion-key collection
+      content: { application/json: { schema: { $ref: "#/components/schemas/IngestionKeyCollection" } } }
+  schemas:
+    Problem:
+      type: object
+      required: [error, detail]
+      properties: { error: { type: string }, detail: { type: string } }
+    User:
+      type: object
+      required: [subject, name, email, role, expiresAt]
+      properties:
+        subject: { type: string }
+        name: { type: string }
+        email: { type: string, format: email }
+        role: { type: string, enum: [viewer, editor, admin] }
+        expiresAt: { type: string, format: date-time }
+    EcosystemCreate:
+      type: object
+      required: [name, displayName]
+      properties:
+        name: { type: string, pattern: "^[a-z0-9]+(?:-[a-z0-9]+)*$" }
+        displayName: { type: string, minLength: 1 }
+    EcosystemUpdate:
+      type: object
+      required: [displayName]
+      properties:
+        displayName: { type: string, minLength: 1 }
+        isActive: { type: boolean, default: true }
+    Ecosystem:
+      type: object
+      required: [ID, Name, DisplayName, IsActive, MachineCount, CreatedAt, UpdatedAt]
+      properties:
+        ID: { type: string, format: uuid }
+        Name: { type: string }
+        DisplayName: { type: string }
+        IsActive: { type: boolean }
+        MachineCount: { type: integer, minimum: 0 }
+        LastUsedAt: { type: [string, "null"], format: date-time }
+        CreatedAt: { type: string, format: date-time }
+        UpdatedAt: { type: string, format: date-time }
+    MachineInput:
+      type: object
+      required: [hostname, ecosystemID, ipv4]
+      properties:
+        hostname: { type: string, minLength: 1 }
+        ecosystemID: { type: string, format: uuid }
+        ipv4: { type: string, format: ipv4 }
+    Machine:
+      type: object
+      required: [ID, Hostname, EcosystemID, EcosystemName, IPv4, LastSyncAt, IsManaged, CreatedAt, UpdatedAt]
+      properties:
+        ID: { type: string, format: uuid }
+        Hostname: { type: string }
+        EcosystemID: { type: string, format: uuid }
+        EcosystemName: { type: string }
+        IPv4: { type: string, format: ipv4 }
+        LastUsedAt: { type: [string, "null"], format: date-time }
+        LastSyncAt: { type: string, format: date-time }
+        IsManaged: { type: boolean }
+        CreatedAt: { type: string, format: date-time }
+        UpdatedAt: { type: string, format: date-time }
+    TrustedServiceInput:
+      type: object
+      required: [name, description, isActive, hostnames]
+      properties:
+        name: { type: string, minLength: 1 }
+        description: { type: string }
+        isActive: { type: boolean }
+        hostnames: { type: array, items: { type: string, format: hostname } }
+    TrustedService:
+      type: object
+      required: [ID, Name, Description, IsActive, Hostnames, CreatedAt, UpdatedAt]
+      properties:
+        ID: { type: string, format: uuid }
+        Name: { type: string }
+        Description: { type: string }
+        IsActive: { type: boolean }
+        Hostnames: { type: array, items: { type: object, additionalProperties: true } }
+        CreatedAt: { type: string, format: date-time }
+        UpdatedAt: { type: string, format: date-time }
+    IngestionKey:
+      type: object
+      required: [ID, Name, Prefix, CreatedAt]
+      properties:
+        ID: { type: string, format: uuid }
+        Name: { type: string }
+        Prefix: { type: string }
+        ExpiresAt: { type: [string, "null"], format: date-time }
+        RevokedAt: { type: [string, "null"], format: date-time }
+        LastUsedAt: { type: [string, "null"], format: date-time }
+        CreatedAt: { type: string, format: date-time }
+    EffectiveIP:
+      type: object
+      required: [IPv4, SourceType, SourceID, Stale]
+      properties:
+        IPv4: { type: string, format: ipv4 }
+        SourceType: { type: string, enum: [machine, trusted] }
+        SourceID: { type: string, format: uuid }
+        Hostname: { type: string }
+        Service: { type: string }
+        LastUsedAt: { type: [string, "null"], format: date-time }
+        LastSyncAt: { type: [string, "null"], format: date-time }
+        Stale: { type: boolean }
+    FirewallList:
+      type: object
+      required: [version, generatedAt, items]
+      properties:
+        ecosystem: { type: string }
+        version: { type: string }
+        generatedAt: { type: string, format: date-time }
+        items: { type: array, items: { $ref: "#/components/schemas/EffectiveIP" } }
+    Dashboard:
+      type: object
+      required: [window, requests, activity, series, ecosystems, formats, sources]
+      additionalProperties: true
+      properties:
+        window: { type: string, enum: [24h, 7d, 30d] }
+        requests: { type: object, additionalProperties: true }
+        activity: { type: object, additionalProperties: true }
+        series: { type: array, items: { type: object, additionalProperties: true } }
+        ecosystems: { type: array, items: { type: object, additionalProperties: true } }
+        formats: { type: array, items: { type: object, additionalProperties: true } }
+        sources: { type: array, items: { type: object, additionalProperties: true } }
+    EcosystemCollection:
+      type: object
+      required: [items, total]
+      properties: { items: { type: array, items: { $ref: "#/components/schemas/Ecosystem" } }, total: { type: integer, minimum: 0 } }
+    MachineCollection:
+      type: object
+      required: [items, total]
+      properties: { items: { type: array, items: { $ref: "#/components/schemas/Machine" } }, total: { type: integer, minimum: 0 } }
+    TrustedServiceCollection:
+      type: object
+      required: [items, total]
+      properties: { items: { type: array, items: { $ref: "#/components/schemas/TrustedService" } }, total: { type: integer, minimum: 0 } }
+    IngestionKeyCollection:
+      type: object
+      required: [items, total]
+      properties: { items: { type: array, items: { $ref: "#/components/schemas/IngestionKey" } }, total: { type: integer, minimum: 0 } }

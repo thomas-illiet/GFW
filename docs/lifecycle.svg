@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="100%" viewBox="0 0 1200 650" role="img" aria-labelledby="title desc" preserveAspectRatio="xMidYMid meet">
+  <title id="title">Cycle de migration et de démarrage</title>
+  <desc id="desc">La phase de release exécute les migrations avant que le serveur vérifie le schéma, démarre HTTP et ses tâches de fond, puis effectue un arrêt gracieux.</desc>
+  <defs>
+    <linearGradient id="header" x1="0" x2="1"><stop stop-color="#364fc7"/><stop offset="1" stop-color="#4c6ef5"/></linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="135%"><feDropShadow dx="0" dy="4" stdDeviation="5" flood-color="#172033" flood-opacity=".12"/></filter>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto"><path d="M0 0L0 6L9 3z" fill="#5c677d"/></marker>
+    <style>
+      .title{font:700 30px system-ui,sans-serif;fill:#fff}.subtitle{font:15px system-ui,sans-serif;fill:#dbe4ff}.lane{font:700 13px system-ui,sans-serif;fill:#667085;letter-spacing:1.5px}
+      .card{fill:#fff;stroke:#bac8ff;stroke-width:2;rx:15;filter:url(#shadow)}.success{fill:#ebfbee;stroke:#69db7c}.stop{fill:#fff4e6;stroke:#ffa94d}
+      .name{font:700 18px system-ui,sans-serif;fill:#172033;text-anchor:middle}.detail{font:13px system-ui,sans-serif;fill:#5c677d;text-anchor:middle}.edge{fill:none;stroke:#5c677d;stroke-width:2.5;marker-end:url(#arrow)}
+      .edge-label{font:12px system-ui,sans-serif;fill:#667085;text-anchor:middle}.boundary{fill:#f8f9fa;stroke:#dee2e6;stroke-width:1.5;stroke-dasharray:7 6;rx:20}
+    </style>
+  </defs>
+  <rect width="1200" height="650" fill="#fff" rx="20"/>
+  <rect width="1200" height="92" fill="url(#header)" rx="20"/><rect y="72" width="1200" height="20" fill="url(#header)"/>
+  <text class="title" x="42" y="42">Cycle de déploiement</text><text class="subtitle" x="42" y="68">Le schéma est préparé avant le démarrage; le serveur ne le modifie jamais</text>
+
+  <text class="lane" x="42" y="132">PHASE DE RELEASE — COMMANDE GFW MIGRATE</text>
+  <rect class="boundary" x="30" y="150" width="1140" height="170"/>
+  <rect class="card" x="58" y="180" width="220" height="106"/><text class="name" x="168" y="220">Connexion</text><text class="detail" x="168" y="248">configuration validée</text><text class="detail" x="168" y="270">PostgreSQL disponible</text>
+  <rect class="card" x="340" y="180" width="220" height="106"/><text class="name" x="450" y="220">Migrations SQL</text><text class="detail" x="450" y="248">versions embarquées</text><text class="detail" x="450" y="270">transaction par fichier</text>
+  <rect class="card" x="622" y="180" width="220" height="106"/><text class="name" x="732" y="220">Partitions</text><text class="detail" x="732" y="248">12 mois passés</text><text class="detail" x="732" y="270">14 mois futurs</text>
+  <rect class="card success" x="904" y="180" width="220" height="106"/><text class="name" x="1014" y="220">Schéma prêt</text><text class="detail" x="1014" y="248">versions enregistrées</text><text class="detail" x="1014" y="270">release autorisée</text>
+  <path class="edge" d="M278 233H330"/><path class="edge" d="M560 233H612"/><path class="edge" d="M842 233H894"/>
+
+  <text class="lane" x="42" y="374">PHASE D'EXÉCUTION — COMMANDE GFW SERVE</text>
+  <rect class="boundary" x="30" y="392" width="1140" height="200"/>
+  <rect class="card" x="58" y="430" width="220" height="116"/><text class="name" x="168" y="470">Préflight</text><text class="detail" x="168" y="498">ping PostgreSQL</text><text class="detail" x="168" y="520">toutes versions présentes</text>
+  <rect class="card success" x="340" y="430" width="220" height="116"/><text class="name" x="450" y="470">Serveur HTTP</text><text class="detail" x="450" y="498">routes et middleware</text><text class="detail" x="450" y="520">readiness active</text>
+  <rect class="card success" x="622" y="430" width="220" height="116"/><text class="name" x="732" y="470">Workers</text><text class="detail" x="732" y="498">DNS · maintenance</text><text class="detail" x="732" y="520">contexte partagé</text>
+  <rect class="card stop" x="904" y="430" width="220" height="116"/><text class="name" x="1014" y="470">Arrêt gracieux</text><text class="detail" x="1014" y="498">SIGINT · SIGTERM</text><text class="detail" x="1014" y="520">délai maximal 15 s</text>
+  <path class="edge" d="M278 488H330"/><path class="edge" d="M560 488H612"/><path class="edge" d="M842 488H894"/>
+  <path class="edge" d="M1014 286V350H168V420"/><text class="edge-label" x="590" y="340">condition de démarrage : schéma intégralement à jour</text>
+  <text class="detail" x="600" y="626">En cas de migration manquante, serve échoue immédiatement avec l'instruction « gfw migrate up ».</text>
+</svg>

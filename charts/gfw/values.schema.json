@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["image", "config", "secrets", "podSecurityContext", "securityContext"],
+  "properties": {
+    "replicaCount": {"type": "integer", "minimum": 1},
+    "image": {
+      "type": "object",
+      "required": ["repository", "pullPolicy"],
+      "properties": {
+        "repository": {"type": "string", "minLength": 1},
+        "tag": {"type": "string"},
+        "pullPolicy": {"enum": ["Always", "IfNotPresent", "Never"]}
+      }
+    },
+    "config": {
+      "type": "object",
+      "required": ["listen_address", "public_url", "frontend_dir", "oidc_issuer", "oidc_client_id", "oidc_redirect_url", "dev_auth", "dns_interval", "dns_timeout", "retention_days"],
+      "properties": {
+        "dev_auth": {"const": false},
+        "retention_days": {"type": "integer", "minimum": 1}
+      }
+    },
+    "secrets": {"type": "object", "required": ["existingSecret", "keys"]},
+    "podSecurityContext": {
+      "type": "object",
+      "required": ["runAsNonRoot", "runAsUser", "runAsGroup", "seccompProfile"],
+      "properties": {
+        "runAsNonRoot": {"const": true},
+        "runAsUser": {"const": 1000},
+        "runAsGroup": {"const": 1000},
+        "seccompProfile": {
+          "type": "object",
+          "required": ["type"],
+          "properties": {"type": {"const": "RuntimeDefault"}}
+        }
+      }
+    },
+    "securityContext": {
+      "type": "object",
+      "required": ["allowPrivilegeEscalation", "capabilities", "privileged", "readOnlyRootFilesystem", "runAsNonRoot", "runAsUser", "runAsGroup", "seccompProfile"],
+      "properties": {
+        "allowPrivilegeEscalation": {"const": false},
+        "capabilities": {
+          "type": "object",
+          "required": ["drop"],
+          "properties": {
+            "drop": {"type": "array", "contains": {"const": "ALL"}}
+          }
+        },
+        "privileged": {"const": false},
+        "readOnlyRootFilesystem": {"const": true},
+        "runAsNonRoot": {"const": true},
+        "runAsUser": {"const": 1000},
+        "runAsGroup": {"const": 1000},
+        "seccompProfile": {
+          "type": "object",
+          "required": ["type"],
+          "properties": {"type": {"const": "RuntimeDefault"}}
+        }
+      }
+    }
+  }
+}
